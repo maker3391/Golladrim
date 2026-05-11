@@ -31,7 +31,7 @@ Golladrim은 음식 추천을 시작으로
 - Java 21
 - Spring Boot
 - JPA
-- MySQL
+- MariaDB
 - Redis
 
 ---
