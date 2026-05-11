@@ -12,7 +12,5 @@ export default function BrandLogo({ size = "md", className }: BrandLogoProps) {
     .filter(Boolean)
     .join(" ");
 
-  return (
-    <span className={classNames}>골라드림</span>
-  );
+  return <span className={classNames}>골라드림</span>;
 }
