@@ -1,0 +1,9 @@
+server:
+  port: 3310
+
+spring:
+  application:
+    name: golladrim-api
+
+  profiles:
+    active: local
