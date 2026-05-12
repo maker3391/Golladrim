@@ -4,6 +4,7 @@ import com.golladrim.user.domain.User;
 import com.golladrim.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -40,7 +41,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        String token = jwtProvider.resolveToken(request.getHeader("Authorization"));
+        String token = resolveAccessToken(request);
 
         if (token == null || !jwtProvider.validateToken(token) || !jwtProvider.isAccessToken(token)) {
             filterChain.doFilter(request, response);
@@ -64,5 +65,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 });
 
         filterChain.doFilter(request, response);
+    }
+
+    private String resolveAccessToken(HttpServletRequest request) {
+        String bearerToken = jwtProvider.resolveToken(request.getHeader("Authorization"));
+
+        if (bearerToken != null) {
+            return bearerToken;
+        }
+
+        Cookie[] cookies = request.getCookies();
+
+        if (cookies == null) {
+            return null;
+        }
+
+        for (Cookie cookie : cookies) {
+            if ("accessToken".equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+
+        return null;
     }
 }
