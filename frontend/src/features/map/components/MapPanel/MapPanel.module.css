@@ -1,87 +1,100 @@
 .panel {
+  position: relative;
+  flex: 1;
   min-width: 0;
-  height: 100%;
-  padding: 16px;
-  background: rgba(248, 250, 252, 0.7);
+  background: #f8fafc;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;  
 }
 
 .mapSurface {
-  position: relative;
+  position: absolute;
+  inset: 0;
+}
+
+.mapFallback {
   height: 100%;
-  overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 26px;
-  background:
-    linear-gradient(rgba(148, 163, 184, 0.13) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(148, 163, 184, 0.13) 1px, transparent 1px),
-    radial-gradient(circle at 42% 46%, rgba(15, 118, 110, 0.06), transparent 30%),
-    linear-gradient(145deg, #fafafa 0%, #eef2f7 100%);
-  background-size:
-    52px 52px,
-    52px 52px,
-    auto,
-    auto;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
-}
-
-.mapSurface::before,
-.mapSurface::after {
-  content: "";
-  position: absolute;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.04);
-}
-
-.mapSurface::before {
-  left: 8%;
-  top: 48%;
-  width: 86%;
-  height: 18px;
-  transform: rotate(-7deg);
-}
-
-.mapSurface::after {
-  left: 52%;
-  top: 10%;
-  width: 16px;
-  height: 78%;
-  transform: rotate(18deg);
-}
-
-.marker {
-  position: absolute;
-  z-index: 2;
-  height: 32px;
-  padding: 0 12px;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(15, 118, 110, 0.16);
-  border-radius: 999px;
+  border: 1px dashed rgba(15, 23, 42, 0.18);
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.locationControl {
+  width: 32px;
+  height: 32px;
+  margin: 6px 0 0;
+}
+
+.locationButton {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  border-radius: 2px;
   background: #ffffff;
-  color: #115e59;
+  color: #0f766e;
+  cursor: pointer;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.16);
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+
+.locationButton:hover {
+  border-color: rgba(15, 118, 110, 0.3);
+  background: #f8fffd;
+}
+
+.locationPulse {
+  position: absolute;
+  inset: 6px;
+  border-radius: 999px;
+  background: rgba(20, 184, 166, 0.12);
+  transform: scale(0.7);
+  animation: locationPulse 2.2s ease-out infinite;
+}
+
+.locationIcon {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes locationPulse {
+  0%   { opacity: 0.9; transform: scale(0.72); }
+  72%  { opacity: 0;   transform: scale(1.7);  }
+  100% { opacity: 0;   transform: scale(1.7);  }
+}
+
+.mapStatus {
+  position: absolute;
+  left: 50%;
+  bottom: 28px;
+  max-width: calc(100% - 56px);
+  padding: 8px 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #475569;
   font-size: 12px;
-  font-weight: 850;
-  box-shadow: 0 12px 30px rgba(19, 78, 74, 0.12);
-}
-
-.markerPrimary {
-  left: 38%;
-  top: 39%;
-  background: #0f766e;
-  color: #ffffff;
-}
-
-.markerSecondary {
-  right: 26%;
-  bottom: 28%;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  transform: translateX(-50%);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
 @media (max-width: 900px) {
   .panel {
     min-height: calc(100svh - 68px);
-    padding: 14px;
+    flex: none;
+    width: 100%;
+    height: 50svh;
   }
 }

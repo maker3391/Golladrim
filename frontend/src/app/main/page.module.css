@@ -12,7 +12,7 @@
   height: calc(100svh - 68px);
   margin-top: 68px;
   display: grid;
-  grid-template-columns: 40% 60%;
+  grid-template-columns: 400px minmax(0, 1fr);
 }
 
 @media (max-width: 900px) {
