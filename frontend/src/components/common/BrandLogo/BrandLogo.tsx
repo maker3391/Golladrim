@@ -1,6 +1,6 @@
 import styles from "./BrandLogo.module.css";
 
-type BrandLogoSize = "sm" | "md" | "lg";
+type BrandLogoSize = "sm" | "md" | "nav" | "lg";
 
 type BrandLogoProps = {
   size?: BrandLogoSize;

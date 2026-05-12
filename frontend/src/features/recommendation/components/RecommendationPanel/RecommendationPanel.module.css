@@ -4,7 +4,7 @@
   max-width: 400px;
   height: 100%;
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: 1fr auto;
   border-right: 1px solid rgba(15, 23, 42, 0.1);
   background: rgba(248, 250, 252, 0.92);
   overflow: hidden;
@@ -13,51 +13,9 @@
     "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
 }
 
-.header {
-  min-height: 62px;
-  padding: 14px 16px 12px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.07);
-  background: rgba(255, 255, 255, 0.68);
-}
-
-.headerIcon {
-  width: 32px;
-  height: 32px;
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  border: 1px solid rgba(15, 118, 110, 0.18);
-  border-radius: 8px;
-  background: #ffffff;
-  color: #0f766e;
-}
-
-.headerText {
-  min-width: 0;
-}
-
-.headerText p {
-  margin: 0 0 2px;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-}
-
-.headerText h1 {
-  margin: 0;
-  color: #0f172a;
-  font-size: 15px;
-  font-weight: 760;
-  line-height: 1.15;
-}
-
 .conversation {
   min-height: 0;         
-  padding: 12px;
+  padding: 16px 12px 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -98,31 +56,29 @@
 .userPrompt p,
 .agentReply p { margin: 0; }
 
-.resultsHeader {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 8px;
+.resultsBlock {
+  width: 100%;
+  margin-top: 2px;
+  padding: 10px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.58);
 }
 
-.resultsHeader p,
-.resultsHeader strong { margin: 0; }
-
-.resultsHeader p {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1.1;
+.resultsHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
 }
 
 .resultsHeader strong {
-  display: block;
-  margin-top: 2px;
   color: #0f172a;
   font-size: 13px;
   font-weight: 800;
-  line-height: 1.1;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .resultsHeader span {

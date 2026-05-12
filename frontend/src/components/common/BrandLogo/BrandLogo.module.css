@@ -5,7 +5,7 @@
   
   font-weight: 720;
   line-height: 1;
-  letter-spacing: -0.035em;
+  letter-spacing: 0;
   user-select: none;
 
   background: linear-gradient(135deg, #134e4a 0%, #0f766e 54%, #14b8a6 100%);
@@ -30,6 +30,7 @@
 
 .sm { --logo-size: 16px; }
 .md { --logo-size: 20px; }
+.nav { --logo-size: clamp(24px, 1.45vw, 28px); }
 .lg { --logo-size: clamp(24px, 2.45vw, 34px); }
 
 @media (min-width: 1024px) {

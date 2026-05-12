@@ -36,6 +36,8 @@ declare global {
 }
 
 const KAKAO_MAP_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_APP_KEY;
+const DEFAULT_MAP_LEVEL = 7;
+const FOCUSED_MAP_LEVEL = 6;
 
 interface MapPanelProps {
   location?: { latitude: number; longitude: number; name: string };
@@ -68,7 +70,7 @@ export default function MapPanel({ location }: MapPanelProps) {
         currentMarkerRef.current?.setMap(null);
         currentMarkerRef.current = new maps.Marker({ map, position: pos, title: "현재 위치" });
         map.setCenter(pos);
-        map.setLevel(5);
+        map.setLevel(FOCUSED_MAP_LEVEL);
         setMapStatus(null);
       },
       () => {
@@ -89,7 +91,7 @@ export default function MapPanel({ location }: MapPanelProps) {
 
       const center = new maps.LatLng(35.1579, 129.0597);
 
-      mapInstanceRef.current = new maps.Map(mapRef.current, { center, level: 7 });
+      mapInstanceRef.current = new maps.Map(mapRef.current, { center, level: DEFAULT_MAP_LEVEL });
 
       mapInstanceRef.current.addControl(
         new maps.MapTypeControl(),
@@ -133,7 +135,7 @@ export default function MapPanel({ location }: MapPanelProps) {
     placeMarkerRef.current?.setMap(null);
     placeMarkerRef.current = new maps.Marker({ map, position: pos, title: location.name });
     map.setCenter(pos);
-    map.setLevel(4);
+    map.setLevel(FOCUSED_MAP_LEVEL);
     setMapStatus(null);
   }, [location]);
 

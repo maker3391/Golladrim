@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ArrowUp, MapPinned, Sparkles } from "lucide-react";
+import { ArrowUp, MapPinned } from "lucide-react";
 import styles from "./RecommendationPanel.module.css";
 
 const recommendations = [
@@ -49,16 +49,6 @@ export default function RecommendationPanel({ onSelectPlace }: RecommendationPan
 
   return (
     <aside className={styles.panel} aria-label="추천 탐색 패널">
-      <header className={styles.header}>
-        <div className={styles.headerIcon} aria-hidden="true">
-          <Sparkles size={18} strokeWidth={2.2} />
-        </div>
-        <div className={styles.headerText}>
-          <p>Golladrim AI</p>
-          <h1>추천 장소 탐색</h1>
-        </div>
-      </header>
-
       <section className={styles.conversation} aria-label="AI 추천 대화">
         <div className={styles.userPrompt}>
           <p>퇴근하고 혼자 가볍게 술 한잔 하고 싶어</p>
@@ -69,13 +59,10 @@ export default function RecommendationPanel({ onSelectPlace }: RecommendationPan
         </div>
 
         {hasResults && (
-          <>
+          <div className={styles.resultsBlock}>
             <div className={styles.resultsHeader}>
-              <div>
-                <p>추천 결과</p>
-                <strong>{recommendations.length}곳</strong>
-              </div>
-              <span>근처 선호도순</span>
+              <strong>추천 결과</strong>
+              <span>{recommendations.length}곳 · 근처 선호도순</span>
             </div>
 
             <div className={styles.resultList}>
@@ -103,7 +90,7 @@ export default function RecommendationPanel({ onSelectPlace }: RecommendationPan
                 </article>
               ))}
             </div>
-          </>
+          </div>
         )}
       </section>
 
