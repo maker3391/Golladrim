@@ -46,8 +46,8 @@ export default function AgentIntroOverlay({ onSubmit }: AgentIntroOverlayProps) 
       </div>
 
       <div className={styles.copy}>
-        <h1>오늘 뭐 먹을지 그대로 써보세요</h1>
-        <p>메뉴가 떠오르지 않아도 괜찮아요. 상황만 말해도 골라드릴게요.</p>
+        <h1>오늘의 선택을 더 가볍게</h1>
+        <p>메뉴 고민 없이 바로 추천받아보세요</p>
       </div>
 
       <div className={styles.chips} aria-label="추천 예시">
@@ -71,7 +71,7 @@ export default function AgentIntroOverlay({ onSubmit }: AgentIntroOverlayProps) 
         </button>
       </form>
 
-      <p className={styles.helper}>골라드림 AI가 지금 먹기 좋은 메뉴와 장소를 함께 골라드릴게요.</p>
+      <p className={styles.helper}>골라드림 AI가 지금 먹기 좋은 메뉴와 장소를 함께 골라드릴게요</p>
     </motion.div>
   );
 }
