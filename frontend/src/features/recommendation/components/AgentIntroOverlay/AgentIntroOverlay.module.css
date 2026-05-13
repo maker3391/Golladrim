@@ -1,0 +1,228 @@
+.overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 6;
+  width: min(820px, calc(100% - 96px));
+  padding: 42px 44px 30px;
+  border: 1px solid rgba(20, 184, 166, 0.22);
+  border-radius: 28px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: center;
+  box-shadow:
+    0 18px 52px rgba(15, 23, 42, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 1) inset;
+}
+
+.eyebrow {
+  width: fit-content;
+  min-height: 34px;
+  margin: 0 auto;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(20, 184, 166, 0.34);
+  border-radius: 999px;
+  background: rgba(20, 184, 166, 0.09);
+  color: #0f766e;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgba(20, 184, 166, 0.08) inset;
+}
+
+.copy {
+  margin-top: 18px;
+}
+
+.copy h1 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 32px;
+  font-weight: 720;
+  line-height: 1.25;
+  letter-spacing: -0.035em;
+}
+
+.copy p {
+  max-width: 560px;
+  margin: 10px auto 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 420;
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
+
+.chips {
+  width: min(100%, 640px);
+  margin: 24px auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.chips button {
+  min-height: 36px;
+  padding: 7px 14px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.chips button:hover {
+  transform: translateY(-1px);
+  border-color: rgba(15, 118, 110, 0.28);
+  background: rgba(20, 184, 166, 0.09);
+  color: #0f766e;
+  box-shadow: 0 8px 18px rgba(15, 118, 110, 0.08);
+}
+
+.composer {
+  min-height: 76px;
+  margin: 30px auto 0;
+  padding: 12px 12px 12px 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 4px solid rgba(20, 184, 166, 0.38);
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.composer:focus-within {
+  border-color: rgba(15, 118, 110, 0.62);
+  background: #ffffff;
+  box-shadow:
+    0 16px 36px rgba(15, 23, 42, 0.08),
+    0 0 0 4px rgba(20, 184, 166, 0.1);
+}
+
+.composer input {
+  min-width: 0;
+  height: 48px;
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 48px;
+  letter-spacing: -0.01em;
+}
+
+.composer input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+.composer button {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  border: none;
+  border-radius: 14px;
+  background: #0f766e;
+  color: #ffffff;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    transform 0.15s ease,
+    opacity 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.composer button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #0d9488;
+  box-shadow: 0 10px 18px rgba(15, 118, 110, 0.22);
+}
+
+.composer button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+  background: #8fcac4;
+}
+
+.helper {
+  margin: 14px 0 0;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 700px) {
+  .overlay {
+    top: 46%;
+    width: min(100% - 28px, 520px);
+    padding: 24px 18px 18px;
+    border-radius: 20px;
+  }
+
+  .copy h1 {
+    font-size: 24px;
+  }
+
+  .copy p {
+    font-size: 13px;
+  }
+
+  .chips {
+    margin-top: 18px;
+  }
+
+  .chips button {
+    min-height: 32px;
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .composer {
+    min-height: 60px;
+    margin-top: 20px;
+    padding: 8px 8px 8px 14px;
+    border-radius: 18px;
+  }
+
+  .composer input {
+    height: 42px;
+    font-size: 13px;
+    line-height: 42px;
+  }
+
+  .composer button {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+  }
+
+  .helper {
+    font-size: 11px;
+  }
+}

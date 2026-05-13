@@ -171,7 +171,7 @@
   border-right: 1px solid rgba(226, 232, 240, 0.58);
 
   animation:
-    typing 1.45s steps(18, end) 0.9s forwards,
+    typing 1.45s steps(19, end) 0.9s forwards,
     cursorBlink 0.85s step-end 0.9s infinite;
 }
 
@@ -263,7 +263,7 @@
   }
 
   to {
-    width: 18ch;
+    width: 19ch;
   }
 }
 
@@ -319,7 +319,7 @@
     font-size: 16px;
 
     animation:
-      typingMobile 1.45s steps(18, end) 1s forwards,
+      typingMobile 1.45s steps(19, end) 1s forwards,
       cursorBlink 0.85s step-end 1s infinite;
   }
 
@@ -345,7 +345,7 @@
   }
 
   to {
-    width: 18ch;
+    width: 19ch;
   }
 }
 
