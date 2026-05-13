@@ -2,7 +2,14 @@
 
 > "뭐 먹지?"라는 짧은 질문에서 시작해, 메뉴 선택부터 장소 추천까지 이어지는 AI 기반 Recommendation Flow Platform
 
-![Golladrim main screen](frontend/docs/images/image.png)
+<p align="center">
+  <img
+    src="./frontend/docs/images/golladrim-main.png"
+    alt="Golladrim main screen"
+    width="1100"
+  />
+</p>
+
 
 ---
 
