@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import Script from "next/script";
 import { motion } from "framer-motion";
 import { LocateFixed } from "lucide-react";
+import { KAKAO_MAP_APP_KEY } from "@/features/map/components/KakaoMapSdkScript";
+import { loadKakaoMapSdk } from "@/features/map/utils/loadKakaoMapSdk";
 import styles from "./MapPanel.module.css";
 
 type KakaoLatLng = object;
@@ -35,7 +36,6 @@ declare global {
   }
 }
 
-const KAKAO_MAP_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_APP_KEY;
 const DEFAULT_MAP_LEVEL = 7;
 const FOCUSED_MAP_LEVEL = 6;
 
@@ -48,9 +48,7 @@ export default function MapPanel({ location }: MapPanelProps) {
   const mapInstanceRef = useRef<KakaoMap | null>(null);
   const currentMarkerRef = useRef<KakaoMarker | null>(null);
   const placeMarkerRef = useRef<KakaoMarker | null>(null);
-  const [isSdkLoaded, setIsSdkLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [mapStatus, setMapStatus] = useState<string | null>("지도를 불러오는 중입니다.");
 
   const moveToCurrentLocation = useCallback(() => {
     const maps = window.kakao?.maps;
@@ -58,11 +56,8 @@ export default function MapPanel({ location }: MapPanelProps) {
     if (!maps || !map) return;
 
     if (!navigator.geolocation) {
-      setMapStatus("브라우저에서 현재 위치를 지원하지 않습니다.");
       return;
     }
-
-    setMapStatus("현재 위치를 확인하는 중입니다.");
 
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
@@ -71,23 +66,20 @@ export default function MapPanel({ location }: MapPanelProps) {
         currentMarkerRef.current = new maps.Marker({ map, position: pos, title: "현재 위치" });
         map.setCenter(pos);
         map.setLevel(FOCUSED_MAP_LEVEL);
-        setMapStatus(null);
       },
-      () => {
-        setMapStatus("현재 위치 권한을 허용하면 근처 음식점 기준으로 추천할 수 있습니다.");
-      },
+      () => undefined,
       { enableHighAccuracy: true, maximumAge: 60_000, timeout: 8_000 },
     );
   }, []);
 
   useEffect(() => {
-    if (!isSdkLoaded || !mapRef.current || mapInstanceRef.current) return;
+    let isMounted = true;
 
-    const maps = window.kakao?.maps;
-    if (!maps) return;
+    const initMap = () => {
+      if (!isMounted || !mapRef.current || mapInstanceRef.current) return;
 
-    maps.load(() => {
-      if (!mapRef.current || mapInstanceRef.current) return;
+      const maps = window.kakao?.maps;
+      if (!maps) return;
 
       const center = new maps.LatLng(35.1579, 129.0597);
 
@@ -123,8 +115,22 @@ export default function MapPanel({ location }: MapPanelProps) {
 
       setMapError(null);
       moveToCurrentLocation();
-    });
-  }, [isSdkLoaded, moveToCurrentLocation]);
+    };
+
+    loadKakaoMapSdk()
+      .then(() => {
+        initMap();
+      })
+      .catch(() => {
+        if (isMounted) {
+          setMapError("Kakao 지도 SDK 로드에 실패했습니다. 앱 키와 도메인을 확인해주세요.");
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [moveToCurrentLocation]);
 
   useEffect(() => {
     const maps = window.kakao?.maps;
@@ -136,7 +142,6 @@ export default function MapPanel({ location }: MapPanelProps) {
     placeMarkerRef.current = new maps.Marker({ map, position: pos, title: location.name });
     map.setCenter(pos);
     map.setLevel(FOCUSED_MAP_LEVEL);
-    setMapStatus(null);
   }, [location]);
 
   if (!KAKAO_MAP_APP_KEY) {
@@ -151,22 +156,7 @@ export default function MapPanel({ location }: MapPanelProps) {
 
   return (
     <section className={styles.panel} aria-label="지도 영역">
-      <Script
-        src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_APP_KEY}&autoload=false`}
-        strategy="afterInteractive"
-        onReady={() => {
-          if (!window.kakao?.maps) {
-            setMapError("Kakao 지도 SDK를 초기화하지 못했습니다.");
-            return;
-          }
-          setIsSdkLoaded(true);
-        }}
-        onError={() =>
-          setMapError("Kakao 지도 SDK 로드에 실패했습니다. 앱 키와 도메인을 확인해주세요.")
-        }
-      />
       <div ref={mapRef} className={styles.mapSurface} />
-      {mapStatus && !mapError && <div className={styles.mapStatus}>{mapStatus}</div>}
       {mapError && <div className={styles.mapStatus}>{mapError}</div>}
     </section>
   );

@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { authApi } from "@/features/auth/api/authApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import { hasLogoutIntent } from "@/features/auth/utils/logoutIntent";
 
 interface AuthInitializerProps {
   children: React.ReactNode;
@@ -14,6 +15,11 @@ export default function AuthInitializer({ children }: AuthInitializerProps) {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      if (hasLogoutIntent()) {
+        logout();
+        return;
+      }
+
       try {
         const user = await authApi.getMe();
         setUser(user);
@@ -23,7 +29,7 @@ export default function AuthInitializer({ children }: AuthInitializerProps) {
     };
 
     initializeAuth();
-  }, [logout, setUser]);
+  }, [setUser, logout]);
 
   return <>{children}</>;
 }

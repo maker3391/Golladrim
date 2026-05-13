@@ -42,6 +42,11 @@
   gap: 6px;
 }
 
+.authPlaceholder {
+  width: 74px;
+  height: 36px;
+}
+
 .signupButton {
   height: 36px;
 

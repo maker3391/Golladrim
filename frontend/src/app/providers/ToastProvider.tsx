@@ -1,13 +1,13 @@
 "use client";
 
-import { Toaster } from "react-hot-toast";
+import { ToastBar, Toaster } from "react-hot-toast";
 
 export default function ToastProvider() {
   return (
     <Toaster
-      position="top-center"
+      position="bottom-right"
       toastOptions={{
-        duration: 3000,
+        duration: 2000,
         style: {
           borderRadius: "12px",
           boxShadow: "0 14px 40px rgba(15, 23, 42, 0.14)",
@@ -28,6 +28,18 @@ export default function ToastProvider() {
           },
         },
       }}
-    />
+    >
+      {(toast) => (
+        <ToastBar
+          toast={toast}
+          style={{
+            ...toast.style,
+            animation: toast.visible
+              ? "toast-enter 180ms ease-out"
+              : "toast-exit 140ms ease-in forwards",
+          }}
+        />
+      )}
+    </Toaster>
   );
 }

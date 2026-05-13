@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { flushSync } from "react-dom";
 import toast from "react-hot-toast";
 
 import { authApi } from "@/features/auth/api/authApi";
 import { useAuthStore } from "@/features/auth/store/authStore";
+import { clearLogoutIntent } from "@/features/auth/utils/logoutIntent";
 import { getApiErrorMessage } from "@/shared/api/getApiErrorMessage";
 
 import styles from "./AuthModal.module.css";
@@ -20,11 +22,14 @@ const OAUTH_POPUP_WIDTH = 500;
 const OAUTH_POPUP_HEIGHT = 720;
 const OAUTH_POLL_INTERVAL_MS = 1000;
 const OAUTH_POLL_TIMEOUT_MS = 120000;
+const OAUTH_CHANNEL_NAME = "golladrim:oauth";
 
 type OAuthMessage = {
   type: "oauth2:error" | "oauth2:success";
   message?: string;
 };
+
+type OAuthProvider = "google" | "kakao";
 
 function GoogleIcon() {
   return (
@@ -53,59 +58,96 @@ export default function AuthModal({ onClose }: AuthModalProps) {
 
   const setUser = useAuthStore((state) => state.setUser);
   const pollIntervalRef = useRef<number | null>(null);
+  const loginCompletionPromiseRef = useRef<Promise<void> | null>(null);
+  const [pendingProvider, setPendingProvider] = useState<OAuthProvider | null>(null);
+
+  const clearPolling = useCallback(() => {
+    if (pollIntervalRef.current) {
+      window.clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }, []);
+
+  const completeOAuthLogin = useCallback(
+    (popup?: Window | null, showErrorOnFailure = true) => {
+      if (loginCompletionPromiseRef.current) {
+        return loginCompletionPromiseRef.current;
+      }
+
+      const completionPromise = (async () => {
+        try {
+          const user = await authApi.getMe();
+          clearLogoutIntent();
+          setUser(user);
+          popup?.close();
+          clearPolling();
+          onClose();
+          toast.success("로그인되었습니다.");
+          router.replace("/main");
+        } catch (error) {
+          loginCompletionPromiseRef.current = null;
+          setPendingProvider(null);
+          if (showErrorOnFailure) {
+            toast.error(
+              getApiErrorMessage(
+                error,
+                "로그인 정보를 확인하지 못했습니다. 다시 시도해주세요.",
+              ),
+            );
+          }
+          throw error;
+        }
+      })();
+
+      loginCompletionPromiseRef.current = completionPromise;
+      return completionPromise;
+    },
+    [clearPolling, onClose, router, setUser],
+  );
 
   useEffect(() => {
-    const clearPolling = () => {
-      if (pollIntervalRef.current) {
-        window.clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
-    };
-
-    const completeOAuthLogin = async () => {
-      try {
-        const user = await authApi.getMe();
-        setUser(user);
+    const handleOAuthPayload = async (payload: OAuthMessage | undefined) => {
+      if (payload?.type === "oauth2:error") {
         clearPolling();
-        onClose();
-        toast.success("로그인되었습니다.");
-        router.replace("/main");
-      } catch (error) {
-        toast.error(
-          getApiErrorMessage(
-            error,
-            "로그인 정보를 확인하지 못했습니다. 다시 시도해주세요.",
-          ),
-        );
+        setPendingProvider(null);
+        toast.error(payload.message ?? "소셜 로그인 중 문제가 발생했습니다.");
+        return;
       }
+      if (payload?.type !== "oauth2:success") return;
+
+      await completeOAuthLogin().catch(() => undefined);
     };
 
     const handleOAuthMessage = async (event: MessageEvent<OAuthMessage>) => {
       if (event.origin !== window.location.origin) return;
-      if (event.data?.type === "oauth2:error") {
-        toast.error(event.data.message ?? "소셜 로그인 중 문제가 발생했습니다.");
-        return;
-      }
-      if (event.data?.type !== "oauth2:success") return;
+      await handleOAuthPayload(event.data);
+    };
 
-      await completeOAuthLogin();
+    const channel = new BroadcastChannel(OAUTH_CHANNEL_NAME);
+    channel.onmessage = async (event: MessageEvent<OAuthMessage>) => {
+      await handleOAuthPayload(event.data);
     };
 
     window.addEventListener("message", handleOAuthMessage);
 
     return () => {
       window.removeEventListener("message", handleOAuthMessage);
+      channel.close();
       clearPolling();
     };
-  }, [onClose, router, setUser]);
+  }, [clearPolling, completeOAuthLogin]);
 
-  const handleOAuthLogin = (provider: "google" | "kakao") => {
+  const handleOAuthLogin = (provider: OAuthProvider) => {
     if (!API_BASE_URL) {
       toast.error("API 서버 주소가 설정되지 않았습니다.");
       return;
     }
 
-    const authUrl = `${API_BASE_URL}/oauth2/authorization/${provider}`;
+    flushSync(() => {
+      setPendingProvider(provider);
+    });
+
+    const authUrl = `/oauth2/authorize?provider=${provider}`;
 
     const left = window.screenX + (window.outerWidth - OAUTH_POPUP_WIDTH) / 2;
     const top = window.screenY + (window.outerHeight - OAUTH_POPUP_HEIGHT) / 2;
@@ -133,21 +175,13 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           window.clearInterval(pollIntervalRef.current);
           pollIntervalRef.current = null;
         }
+        setPendingProvider(null);
         toast.error("로그인 처리 시간이 초과되었습니다. 다시 시도해주세요.");
         return;
       }
 
       try {
-        const user = await authApi.getMe();
-        setUser(user);
-        popup.close();
-        if (pollIntervalRef.current) {
-          window.clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-        onClose();
-        toast.success("로그인되었습니다.");
-        router.replace("/main");
+        await completeOAuthLogin(popup, false);
       } catch (error) {
         if (popup.closed && pollIntervalRef.current) {
           window.clearInterval(pollIntervalRef.current);
@@ -155,6 +189,7 @@ export default function AuthModal({ onClose }: AuthModalProps) {
         }
 
         if (popup.closed) {
+          setPendingProvider(null);
           toast.error(
             getApiErrorMessage(
               error,
@@ -166,6 +201,10 @@ export default function AuthModal({ onClose }: AuthModalProps) {
     }, OAUTH_POLL_INTERVAL_MS);
   };
 
+  if (pendingProvider) {
+    return null;
+  }
+
   return (
     <div className={styles.backdrop} onClick={onClose}>
       <section className={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -175,31 +214,31 @@ export default function AuthModal({ onClose }: AuthModalProps) {
           소셜 계정으로 간편하게 골라드림을 이용해보세요.
         </p>
 
-        <div className={styles.buttonGroup}>
-          <button
-            type="button"
-            className={styles.googleButton}
-            onClick={() => handleOAuthLogin("google")}
-          >
-            <GoogleIcon />
-            <span>Google로 계속하기</span>
-            <i aria-hidden="true" />
-          </button>
+            <div className={styles.buttonGroup}>
+              <button
+                type="button"
+                className={styles.googleButton}
+                onClick={() => handleOAuthLogin("google")}
+              >
+                <GoogleIcon />
+                <span>Google로 계속하기</span>
+                <i aria-hidden="true" />
+              </button>
 
-          <button
-            type="button"
-            className={styles.kakaoButton}
-            onClick={() => handleOAuthLogin("kakao")}
-          >
-            <KakaoIcon />
-            <span>Kakao로 계속하기</span>
-            <i aria-hidden="true" />
-          </button>
-        </div>
+              <button
+                type="button"
+                className={styles.kakaoButton}
+                onClick={() => handleOAuthLogin("kakao")}
+              >
+                <KakaoIcon />
+                <span>Kakao로 계속하기</span>
+                <i aria-hidden="true" />
+              </button>
+            </div>
 
-        <button type="button" className={styles.cancelButton} onClick={onClose}>
-          닫기
-        </button>
+            <button type="button" className={styles.cancelButton} onClick={onClose}>
+              닫기
+            </button>
       </section>
     </div>
   );

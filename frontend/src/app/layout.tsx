@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import AuthInitializer from "@/app/providers/AuthInitializer";
 import ToastProvider from "@/app/providers/ToastProvider";
+import KakaoMapPreloader from "@/features/map/components/KakaoMapPreloader";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -26,7 +27,12 @@ export default function RootLayout({
       lang="ko"
       className={`${notoSansKr.variable} h-full antialiased`}
     >
+      <head>
+        <link rel="preconnect" href="https://dapi.kakao.com" />
+        <link rel="preconnect" href="https://t1.daumcdn.net" />
+      </head>
       <body className="min-h-full flex flex-col">
+        <KakaoMapPreloader />
         <AuthInitializer>{children}</AuthInitializer>
         <ToastProvider />
       </body>
