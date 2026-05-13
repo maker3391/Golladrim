@@ -36,6 +36,9 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
+
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,
@@ -84,7 +87,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         ResponseCookie accessTokenCookie = ResponseCookie.from("accessToken", accessToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .sameSite("Lax")
                 .maxAge(ACCESS_TOKEN_MAX_AGE)
                 .path("/")
@@ -92,7 +95,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
 
         ResponseCookie refreshTokenCookie = ResponseCookie.from("refreshToken", refreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .sameSite("Lax")
                 .maxAge(REFRESH_TOKEN_MAX_AGE)
                 .path("/")
@@ -107,7 +110,7 @@ public class OAuth2SuccessHandler implements AuthenticationSuccessHandler {
     }
 
     private void redirectError(HttpServletResponse response, String message) throws IOException {
-        String redirectUrl = frontendUrl + "/"
+        String redirectUrl = frontendUrl + "/login"
                 + "?error=oauth2"
                 + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8);
 

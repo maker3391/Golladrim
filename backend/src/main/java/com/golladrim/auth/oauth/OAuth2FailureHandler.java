@@ -35,7 +35,7 @@ public class OAuth2FailureHandler implements AuthenticationFailureHandler {
             message = exception.getMessage();
         }
 
-        String redirectUrl = frontendUrl + "/"
+        String redirectUrl = frontendUrl + "/login"
                 + "?error=oauth2"
                 + "&message=" + URLEncoder.encode(message, StandardCharsets.UTF_8);
 

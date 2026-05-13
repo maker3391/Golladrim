@@ -65,9 +65,20 @@ public class AuthService {
     }
 
     @Transactional
-    public MessageResponse logout(User user) {
-        validateAuthenticatedUser(user);
-        refreshTokenService.delete(user.getId());
+    public MessageResponse logout(User user, String refreshToken) {
+        if (user != null) {
+            validateAuthenticatedUser(user);
+            refreshTokenService.delete(user.getId());
+            return new MessageResponse("로그아웃 완료");
+        }
+
+        if (refreshToken != null
+                && !refreshToken.isBlank()
+                && jwtProvider.validateToken(refreshToken)
+                && jwtProvider.isRefreshToken(refreshToken)) {
+            refreshTokenService.delete(jwtProvider.getUserId(refreshToken));
+        }
+
         return new MessageResponse("로그아웃 완료");
     }
 

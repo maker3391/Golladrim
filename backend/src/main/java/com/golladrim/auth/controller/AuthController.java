@@ -8,6 +8,7 @@ import com.golladrim.common.response.MessageResponse;
 import com.golladrim.user.domain.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +28,9 @@ public class AuthController {
     private static final Duration REFRESH_TOKEN_MAX_AGE = Duration.ofDays(14);
 
     private final AuthService authService;
+
+    @Value("${app.cookie.secure:true}")
+    private boolean cookieSecure;
 
     @GetMapping("/me")
     public ResponseEntity<AuthUserResponse> me(@AuthenticationPrincipal User user) {
@@ -50,10 +54,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<MessageResponse> logout(@AuthenticationPrincipal User user) {
-        if (user != null) {
-            authService.logout(user);
-        }
+    public ResponseEntity<MessageResponse> logout(
+            @AuthenticationPrincipal User user,
+            @CookieValue(name = REFRESH_TOKEN_COOKIE_NAME, required = false) String refreshToken
+    ) {
+        authService.logout(user, refreshToken);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, expireCookie(ACCESS_TOKEN_COOKIE_NAME).toString())
@@ -72,7 +77,7 @@ public class AuthController {
     private ResponseCookie createAccessTokenCookie(String accessToken) {
         return ResponseCookie.from(ACCESS_TOKEN_COOKIE_NAME, accessToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .sameSite("Lax")
                 .maxAge(ACCESS_TOKEN_MAX_AGE)
                 .path("/")
@@ -82,7 +87,7 @@ public class AuthController {
     private ResponseCookie createRefreshTokenCookie(String refreshToken) {
         return ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, refreshToken)
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .sameSite("Lax")
                 .maxAge(REFRESH_TOKEN_MAX_AGE)
                 .path("/")
@@ -92,7 +97,7 @@ public class AuthController {
     private ResponseCookie expireCookie(String name) {
         return ResponseCookie.from(name, "")
                 .httpOnly(true)
-                .secure(true)
+                .secure(cookieSecure)
                 .sameSite("Lax")
                 .maxAge(0)
                 .path("/")
