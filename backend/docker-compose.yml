@@ -1,22 +1,12 @@
 services:
-  mariadb:
-    image: mariadb:11
-    container_name: golladrim-mariadb
-    ports:
-      - "3310:3306"
-    environment:
-      MARIADB_ROOT_PASSWORD: QWER1234!
-      MARIADB_DATABASE: golladrim
-    volumes:
-      - golladrim-mariadb-data:/var/lib/mysql
-    restart: unless-stopped
-
   redis:
     image: redis:7
     container_name: golladrim-redis
     ports:
       - "6379:6379"
+    volumes:
+      - golladrim-redis-data:/data
     restart: unless-stopped
 
 volumes:
-  golladrim-mariadb-data:
+  golladrim-redis-data:
