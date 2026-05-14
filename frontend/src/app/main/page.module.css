@@ -10,8 +10,8 @@
 
 .workspace {
   position: relative;
-  height: calc(100svh - 76px);
-  margin-top: 76px;
+  height: calc(100svh - 64px);
+  margin-top: 64px;
   overflow: hidden;
 }
 
@@ -55,16 +55,16 @@
   }
 
   .workspace {
-    height: calc(100svh - 76px);
-    min-height: calc(100svh - 76px);
+    height: calc(100svh - 64px);
+    min-height: calc(100svh - 64px);
   }
 
   .workspaceIntro .mapStage {
-    min-height: calc(100svh - 76px);
+    min-height: calc(100svh - 64px);
   }
 
   .workspaceActive .mapStage {
-    min-height: calc(100svh - 76px);
+    min-height: calc(100svh - 64px);
   }
 
   .panelStage {
@@ -75,13 +75,13 @@
 
 @media (max-width: 520px) {
   .workspace {
-    height: calc(100svh - 68px);
-    min-height: calc(100svh - 68px);
-    margin-top: 68px;
+    height: calc(100svh - 58px);
+    min-height: calc(100svh - 58px);
+    margin-top: 58px;
   }
 
   .workspaceIntro .mapStage,
   .workspaceActive .mapStage {
-    min-height: calc(100svh - 68px);
+    min-height: calc(100svh - 58px);
   }
 }

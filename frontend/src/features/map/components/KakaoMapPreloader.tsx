@@ -26,7 +26,7 @@ export default function KakaoMapPreloader() {
         const maps = window.kakao?.maps as WarmupKakaoMaps | undefined;
         if (!maps) return;
 
-        const center = new maps.LatLng(35.1579, 129.0597);
+        const center = new maps.LatLng(37.5665, 126.9780);
         new maps.Map(warmupMapRef.current, { center, level: 7 });
         hasWarmedKakaoMap = true;
       })

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createRoot } from "react-dom/client";
 import { motion } from "framer-motion";
 import { LocateFixed } from "lucide-react";
 import { KAKAO_MAP_APP_KEY } from "@/features/map/components/KakaoMapSdkScript";
@@ -39,6 +38,20 @@ declare global {
 
 const DEFAULT_MAP_LEVEL = 7;
 const FOCUSED_MAP_LEVEL = 6;
+const GEOLOCATION_CACHE_TTL = 30_000;
+const LOW_ACCURACY_THRESHOLD_METERS = 500;
+const GEOLOCATION_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 15_000,
+  maximumAge: 0,
+};
+
+type LocateStatus = "idle" | "loading" | "success" | "warning" | "error";
+
+interface CachedCoords {
+  coords: GeolocationCoordinates;
+  timestamp: number;
+}
 
 interface MapPanelProps {
   location?: { latitude: number; longitude: number; name: string };
@@ -49,24 +62,15 @@ interface MapPanelProps {
 export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 0 }: MapPanelProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<KakaoMap | null>(null);
-  const currentMarkerRef = useRef<KakaoMarker | null>(null);
   const placeMarkerRef = useRef<KakaoMarker | null>(null);
   const latestLocationRef = useRef<MapPanelProps["location"]>(location);
-  const cachedCoordsRef = useRef<GeolocationCoordinates | null>(null);
+  const cachedCoordsRef = useRef<CachedCoords | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState<LocateStatus>("idle");
 
   useEffect(() => {
     latestLocationRef.current = location;
   }, [location]);
-
-  useEffect(() => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => { cachedCoordsRef.current = coords; },
-      () => undefined,
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 8_000 },
-    );
-  }, []);
 
   const relayoutMap = useCallback(() => {
     const maps = window.kakao?.maps;
@@ -81,42 +85,55 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
     }
   }, []);
 
-  const moveToCurrentLocation = useCallback(() => {
+  const moveToCurrentLocation = useCallback((forceRefresh = false) => {
     const maps = window.kakao?.maps;
     const map = mapInstanceRef.current;
-    if (!maps || !map || !navigator.geolocation) return;
+    if (!maps || !map) return;
 
-    const applyCoords = (coords: GeolocationCoordinates) => {
-      cachedCoordsRef.current = coords;
-      const pos = new maps.LatLng(coords.latitude, coords.longitude);
-      currentMarkerRef.current?.setMap(null);
-      currentMarkerRef.current = new maps.Marker({ map, position: pos, title: "현재 위치" });
-      map.setCenter(pos);
-      map.setLevel(FOCUSED_MAP_LEVEL);
-    };
-
-    if (cachedCoordsRef.current) {
-      applyCoords(cachedCoordsRef.current);
+    if (!navigator.geolocation) {
+      setLocationStatus("error");
       return;
     }
 
+    const applyCoords = (coords: GeolocationCoordinates) => {
+      cachedCoordsRef.current = { coords, timestamp: Date.now() };
+      const pos = new maps.LatLng(coords.latitude, coords.longitude);
+      map.setCenter(pos);
+      map.setLevel(FOCUSED_MAP_LEVEL);
+
+      const isLowAccuracy = coords.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
+      setLocationStatus(isLowAccuracy ? "warning" : "success");
+    };
+
+    const cached = cachedCoordsRef.current;
+    const isCacheFresh = cached && Date.now() - cached.timestamp < GEOLOCATION_CACHE_TTL;
+
+    if (!forceRefresh && isCacheFresh) {
+      applyCoords(cached.coords);
+      return;
+    }
+
+    setLocationStatus("loading");
+
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => applyCoords(coords),
-      () => undefined,
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 8_000 },
+      () => {
+        setLocationStatus("error");
+      },
+      GEOLOCATION_OPTIONS,
     );
   }, []);
 
   useEffect(() => {
     let isMounted = true;
 
-    const initMap = () => {
+    const initMap = (lat: number, lng: number) => {
       if (!isMounted || !mapRef.current || mapInstanceRef.current) return;
 
       const maps = window.kakao?.maps;
       if (!maps) return;
 
-      const center = new maps.LatLng(35.1579, 129.0597);
+      const center = new maps.LatLng(lat, lng);
 
       mapInstanceRef.current = new maps.Map(mapRef.current, { center, level: DEFAULT_MAP_LEVEL });
 
@@ -129,36 +146,17 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
         maps.ControlPosition.RIGHT,
       );
 
-      const locationControlEl = document.createElement("div");
-      locationControlEl.className = styles.locationControl;
-      createRoot(locationControlEl).render(
-        <motion.button
-          className={styles.locationButton}
-          type="button"
-          aria-label="현재 위치로 이동"
-          title="현재 위치로 이동"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.94 }}
-          transition={{ type: "spring", stiffness: 420, damping: 28 }}
-          onClick={moveToCurrentLocation}
-        >
-          <span className={styles.locationPulse} aria-hidden="true" />
-          <LocateFixed className={styles.locationIcon} aria-hidden="true" size={18} strokeWidth={2.2} />
-        </motion.button>,
-      );
-      mapInstanceRef.current.addControl(locationControlEl, maps.ControlPosition.RIGHT);
-
       setMapError(null);
     };
 
     loadKakaoMapSdk()
       .then(() => {
-        initMap();
-        moveToCurrentLocation();
+        initMap(37.5665, 126.9780);
+        moveToCurrentLocation(false);
       })
       .catch(() => {
         if (isMounted) {
-          setMapError("Kakao 지도 SDK 로드에 실패했습니다. 환경 변수를 확인해주세요.");
+          setMapError("Kakao 지도 SDK 로드에 실패했습니다. 환경 변수를 확인해 주세요.");
         }
       });
 
@@ -175,7 +173,6 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
 
     const scheduleRelayout = () => {
       window.clearTimeout(timeoutId);
-
       timeoutId = window.setTimeout(relayoutMap, 140);
     };
 
@@ -215,7 +212,7 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
 
   useEffect(() => {
     if (!locateTrigger) return;
-    const id = window.setTimeout(moveToCurrentLocation, 400);
+    const id = window.setTimeout(() => moveToCurrentLocation(true), 400);
     return () => window.clearTimeout(id);
   }, [locateTrigger, moveToCurrentLocation]);
 
@@ -232,6 +229,27 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
   return (
     <section className={styles.panel} aria-label="지도 영역">
       <div ref={mapRef} className={styles.mapSurface} />
+      <div className={styles.locationControl}>
+        <motion.button
+          className={styles.locationButton}
+          type="button"
+          aria-label="현재 위치로 이동"
+          title="현재 위치로 이동"
+          disabled={locationStatus === "loading"}
+          whileHover={locationStatus === "loading" ? undefined : { scale: 1.05 }}
+          whileTap={locationStatus === "loading" ? undefined : { scale: 0.94 }}
+          transition={{ type: "spring", stiffness: 420, damping: 28 }}
+          onClick={() => moveToCurrentLocation(true)}
+        >
+          <span
+            className={
+              locationStatus === "loading" ? styles.locationPulseActive : styles.locationPulse
+            }
+            aria-hidden="true"
+          />
+          <LocateFixed className={styles.locationIcon} aria-hidden="true" size={18} strokeWidth={2.2} />
+        </motion.button>
+      </div>
       {mapError && <div className={styles.mapStatus}>{mapError}</div>}
     </section>
   );
