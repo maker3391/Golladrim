@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(./gradlew bootRun --stacktrace)",
+      "Bash(tasklist /FI \"PID eq 2908\" /FO LIST)",
+      "Bash(./gradlew compileJava)"
+    ]
+  }
+}
