@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { FoodRecommendItem } from "@/features/recommendation/types/food.types";
@@ -27,9 +27,29 @@ export default function FoodCard({
   onDislike,
   onReady,
 }: FoodCardProps) {
+  const [imageLoaded, setImageLoaded] = useState(() => !food?.imageUrl);
+
   useEffect(() => {
     if (food && !food.imageUrl) onReady?.();
   }, [food, onReady]);
+
+  useEffect(() => {
+    if (imageLoaded && food?.imageUrl) onReady?.();
+  }, [imageLoaded, food?.imageUrl, onReady]);
+
+  useEffect(() => {
+    if (!food?.imageUrl) return;
+
+    const image = new Image();
+    image.src = food.imageUrl;
+    image.onload = () => setImageLoaded(true);
+    image.onerror = () => setImageLoaded(true);
+
+    return () => {
+      image.onload = null;
+      image.onerror = null;
+    };
+  }, [food?.imageUrl]);
 
   if (loading) {
     return (
@@ -50,7 +70,7 @@ export default function FoodCard({
     );
   }
 
-  if (!food) return null;
+  if (!food || !imageLoaded) return null;
 
   return (
     <motion.article
@@ -75,13 +95,7 @@ export default function FoodCard({
       <div className={styles.imageFrame}>
         {food.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={food.imageUrl}
-            alt={food.name}
-            className={styles.image}
-            onLoad={onReady}
-            onError={onReady}
-          />
+          <img src={food.imageUrl} alt={food.name} className={styles.image} />
         ) : (
           <div className={styles.imagePlaceholder} aria-hidden="true" />
         )}

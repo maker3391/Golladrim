@@ -60,7 +60,7 @@ export default function MainPage() {
             userPrompt={userPrompt}
             places={mockRecommendations}
             selectedPlaceId={selectedPlace?.id ?? null}
-            onSubmitPrompt={activateRecommendation}
+
             onTogglePanel={toggleChatPanel}
             canTogglePanel={stage === "active"}
             onSelectPlace={setSelectedPlace}

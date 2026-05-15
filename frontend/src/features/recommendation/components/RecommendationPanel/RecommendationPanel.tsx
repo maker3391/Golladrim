@@ -38,7 +38,6 @@ interface RecommendationPanelProps {
   userPrompt: string;
   places: RecommendationPlace[];
   selectedPlaceId: number | null;
-  onSubmitPrompt: (prompt: string) => void;
   onTogglePanel: () => void;
   canTogglePanel?: boolean;
   onSelectPlace?: (place: RecommendationPlace | null) => void;
@@ -49,7 +48,6 @@ export default function RecommendationPanel({
   userPrompt,
   places,
   selectedPlaceId,
-  onSubmitPrompt,
   onTogglePanel,
   canTogglePanel = true,
   onSelectPlace,
@@ -72,8 +70,8 @@ export default function RecommendationPanel({
   const { currentFood, status, loading, error, recommend, retry } =
     useFoodRecommendation();
 
-  const scrollToBottom = useCallback(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  const scrollToBottom = useCallback((smooth = false) => {
+    bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant", block: "end" });
   }, []);
 
   function handleConversationScroll() {
@@ -113,7 +111,8 @@ export default function RecommendationPanel({
     setActionableFoodMessageId(null);
     setShowThinking(true);
     setMode("food");
-    setMessages([
+    setMessages((current) => [
+      ...current,
       { type: "user", id: createMessageId(), text: trimmedPrompt },
       { type: "agent", id: createMessageId(), text: foodAgentText },
     ]);
@@ -180,7 +179,6 @@ export default function RecommendationPanel({
       { type: "agent", id: createMessageId(), text: foodAgentText },
     ]);
     void recommend(trimmed);
-    onSubmitPrompt(trimmed);
     setInput("");
   }
 
@@ -330,6 +328,7 @@ export default function RecommendationPanel({
                       transition={{ duration: 0.3 }}
                     >
                       <FoodCard
+                        key={message.id}
                         food={message.food}
                         status={message.status}
                         actionsDisabled={message.id !== actionableFoodMessageId}
@@ -424,7 +423,7 @@ export default function RecommendationPanel({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 6 }}
                   transition={{ duration: 0.15 }}
-                  onClick={scrollToBottom}
+                  onClick={() => scrollToBottom(true)}
                 >
                   <ArrowDown aria-hidden="true" size={15} strokeWidth={2.4} />
                 </motion.button>
