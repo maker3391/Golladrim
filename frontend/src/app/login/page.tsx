@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const OAUTH_CHANNEL_NAME = "golladrim:oauth";
 
-export default function LoginRedirectPage() {
+function LoginRedirectContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -33,4 +33,12 @@ export default function LoginRedirectPage() {
   }, [router, searchParams]);
 
   return null;
+}
+
+export default function LoginRedirectPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginRedirectContent />
+    </Suspense>
+  );
 }

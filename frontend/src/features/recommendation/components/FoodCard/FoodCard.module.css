@@ -1,0 +1,206 @@
+.card {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+}
+
+.content {
+  padding: 13px 12px;
+}
+
+.fallback {
+  margin: 0 0 10px;
+  padding: 8px 9px;
+  border-radius: 8px;
+  background: rgba(20, 184, 166, 0.09);
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.header {
+  display: grid;
+  gap: 7px;
+  text-align: center;
+}
+
+.category {
+  color: #0f766e;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: #0f172a;
+  font-size: 1.45rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.imageFrame,
+.image,
+.imagePlaceholder {
+  width: 100%;
+  height: 210px;
+}
+
+.imageFrame {
+  position: relative;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  object-fit: cover;
+}
+
+.imagePlaceholder {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(15, 118, 110, 0.08), rgba(148, 163, 184, 0.2)),
+    #e2e8f0;
+}
+
+.reason {
+  margin: 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.actions {
+  margin-top: 13px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.actions button {
+  min-width: 0;
+  min-height: 54px;
+  padding: 9px 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    border-color 0.15s ease,
+    background 0.15s ease;
+}
+
+.actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.actions button:disabled {
+  cursor: default;
+  opacity: 0.55;
+  transform: none;
+}
+
+.actions button span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+  text-align: left;
+}
+
+.actions strong,
+.actions small {
+  overflow-wrap: anywhere;
+  line-height: 1.15;
+}
+
+.actions strong {
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.actions small {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.likeButton {
+  border: none;
+  background: #0f766e;
+  color: #ffffff;
+}
+
+.likeButton:hover:not(:disabled) {
+  background: #115e59;
+}
+
+.dislikeButton {
+  border: 1px solid rgba(15, 118, 110, 0.24);
+  background: #ffffff;
+  color: #0f766e;
+}
+
+.dislikeButton:hover:not(:disabled) {
+  border-color: rgba(15, 118, 110, 0.38);
+  background: rgba(20, 184, 166, 0.08);
+}
+
+.error {
+  margin: 0;
+  padding: 13px 12px;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.loadingText {
+  min-height: 84px;
+  padding: 20px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f766e;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.loadingDots::after {
+  display: inline-block;
+  width: 18px;
+  text-align: left;
+  content: ".";
+  animation: loadingDots 1.2s steps(1, end) infinite;
+}
+
+@keyframes loadingDots {
+  0%,
+  33% {
+    content: ".";
+  }
+
+  34%,
+  66% {
+    content: "..";
+  }
+
+  67%,
+  100% {
+    content: "...";
+  }
+}

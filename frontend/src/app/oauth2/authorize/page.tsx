@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
 import styles from "./page.module.css";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL;
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL;
 
 const PROVIDER_LABELS = {
   google: "Google",
@@ -18,7 +19,7 @@ function isOAuthProvider(provider: string | null): provider is OAuthProvider {
   return provider === "google" || provider === "kakao";
 }
 
-export default function OAuthAuthorizePage() {
+function OAuthAuthorizeContent() {
   const searchParams = useSearchParams();
   const provider = searchParams.get("provider");
   const isValidProvider = isOAuthProvider(provider);
@@ -29,10 +30,11 @@ export default function OAuthAuthorizePage() {
     window.location.replace(`${API_BASE_URL}/oauth2/authorization/${provider}`);
   }, [isValidProvider, provider]);
 
-  const providerLabel = isValidProvider ? PROVIDER_LABELS[provider] : "소셜";
-  const message = API_BASE_URL && isValidProvider
-    ? `${providerLabel} 로그인 페이지로 이동 중`
-    : "로그인을 시작할 수 없습니다";
+  const providerLabel = isValidProvider ? PROVIDER_LABELS[provider] : "알 수 없음";
+  const message =
+    API_BASE_URL && isValidProvider
+      ? `${providerLabel} 로그인 페이지로 이동 중`
+      : "로그인을 시작할 수 없습니다";
 
   return (
     <main className={styles.page}>
@@ -41,5 +43,13 @@ export default function OAuthAuthorizePage() {
         <strong>{message}</strong>
       </section>
     </main>
+  );
+}
+
+export default function OAuthAuthorizePage() {
+  return (
+    <Suspense fallback={null}>
+      <OAuthAuthorizeContent />
+    </Suspense>
   );
 }

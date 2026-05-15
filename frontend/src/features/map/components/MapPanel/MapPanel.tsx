@@ -39,14 +39,11 @@ declare global {
 const DEFAULT_MAP_LEVEL = 7;
 const FOCUSED_MAP_LEVEL = 6;
 const GEOLOCATION_CACHE_TTL = 30_000;
-const LOW_ACCURACY_THRESHOLD_METERS = 500;
 const GEOLOCATION_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
   timeout: 15_000,
   maximumAge: 0,
 };
-
-type LocateStatus = "idle" | "loading" | "success" | "warning" | "error";
 
 interface CachedCoords {
   coords: GeolocationCoordinates;
@@ -66,7 +63,6 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
   const latestLocationRef = useRef<MapPanelProps["location"]>(location);
   const cachedCoordsRef = useRef<CachedCoords | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
-  const [locationStatus, setLocationStatus] = useState<LocateStatus>("idle");
 
   useEffect(() => {
     latestLocationRef.current = location;
@@ -88,21 +84,12 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
   const moveToCurrentLocation = useCallback((forceRefresh = false) => {
     const maps = window.kakao?.maps;
     const map = mapInstanceRef.current;
-    if (!maps || !map) return;
-
-    if (!navigator.geolocation) {
-      setLocationStatus("error");
-      return;
-    }
+    if (!maps || !map || !navigator.geolocation) return;
 
     const applyCoords = (coords: GeolocationCoordinates) => {
       cachedCoordsRef.current = { coords, timestamp: Date.now() };
-      const pos = new maps.LatLng(coords.latitude, coords.longitude);
-      map.setCenter(pos);
+      map.setCenter(new maps.LatLng(coords.latitude, coords.longitude));
       map.setLevel(FOCUSED_MAP_LEVEL);
-
-      const isLowAccuracy = coords.accuracy > LOW_ACCURACY_THRESHOLD_METERS;
-      setLocationStatus(isLowAccuracy ? "warning" : "success");
     };
 
     const cached = cachedCoordsRef.current;
@@ -113,13 +100,9 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
       return;
     }
 
-    setLocationStatus("loading");
-
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => applyCoords(coords),
-      () => {
-        setLocationStatus("error");
-      },
+      () => {},
       GEOLOCATION_OPTIONS,
     );
   }, []);
@@ -235,18 +218,11 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
           type="button"
           aria-label="현재 위치로 이동"
           title="현재 위치로 이동"
-          disabled={locationStatus === "loading"}
-          whileHover={locationStatus === "loading" ? undefined : { scale: 1.05 }}
-          whileTap={locationStatus === "loading" ? undefined : { scale: 0.94 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.94 }}
           transition={{ type: "spring", stiffness: 420, damping: 28 }}
           onClick={() => moveToCurrentLocation(true)}
         >
-          <span
-            className={
-              locationStatus === "loading" ? styles.locationPulseActive : styles.locationPulse
-            }
-            aria-hidden="true"
-          />
           <LocateFixed className={styles.locationIcon} aria-hidden="true" size={18} strokeWidth={2.2} />
         </motion.button>
       </div>
