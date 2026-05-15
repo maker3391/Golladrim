@@ -75,7 +75,7 @@ public class FoodRuleEngine {
                 .limit(3)
                 .map(item -> {
                     String categoryName = item.getCategory() != null ? item.getCategory().getName() : "";
-                    return new FoodRecommendItem(item.getId(), item.getName(), categoryName, 0, List.of(), "오늘의 추천 메뉴입니다.");
+                    return new FoodRecommendItem(item.getId(), item.getName(), categoryName, item.getImageUrl(), 0, List.of(), "오늘의 추천 메뉴입니다.");
                 })
                 .toList();
     }
@@ -109,7 +109,7 @@ public class FoodRuleEngine {
                 ? "추천 조건과 잘 맞는 메뉴입니다."
                 : String.join(", ", matchedTags) + " 조건과 잘 맞는 메뉴입니다.";
 
-        return new FoodRecommendItem(item.getId(), item.getName(), categoryName, total, matchedTags, reason);
+        return new FoodRecommendItem(item.getId(), item.getName(), categoryName, item.getImageUrl(), total, matchedTags, reason);
     }
 
     private String[] getAxisTags(FoodItem item, String axis) {

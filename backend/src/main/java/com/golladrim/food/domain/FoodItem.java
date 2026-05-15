@@ -25,6 +25,9 @@ public class FoodItem extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(columnDefinition = "text[]")
     @Type(value = StringArrayType.class)
     private String[] situation;
