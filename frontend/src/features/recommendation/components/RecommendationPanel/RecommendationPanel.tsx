@@ -7,10 +7,7 @@ import FoodCard from "@/features/recommendation/components/FoodCard/FoodCard";
 import ThinkingIndicator from "@/features/recommendation/components/ThinkingIndicator/ThinkingIndicator";
 import TypingText from "@/features/recommendation/components/TypingText/TypingText";
 import { useFoodRecommendation } from "@/features/recommendation/hooks/useFoodRecommendation";
-import {
-  FoodRecommendItem,
-  PanelMode,
-} from "@/features/recommendation/types/food.types";
+import { FoodRecommendItem } from "@/features/recommendation/types/food.types";
 import { RecommendationPlace } from "@/features/recommendation/types/recommendation.types";
 import styles from "./RecommendationPanel.module.css";
 
@@ -26,8 +23,6 @@ type ChatMessage =
       status: "SUCCESS" | "FALLBACK";
     }
   | { type: "place"; id: string };
-
-const foodAgentText = "";
 
 function createMessageId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
@@ -53,7 +48,6 @@ export default function RecommendationPanel({
   onSelectPlace,
 }: RecommendationPanelProps) {
   const [input, setInput] = useState("");
-  const [mode, setMode] = useState<PanelMode>("idle");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [actionableFoodMessageId, setActionableFoodMessageId] = useState<
     string | null
@@ -65,6 +59,7 @@ export default function RecommendationPanel({
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const hasInitializedPromptRef = useRef(false);
   const pendingFoodAppendRef = useRef(false);
+  const appendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const conversationRef = useRef<HTMLElement | null>(null);
   const { currentFood, status, loading, error, recommend, retry } =
@@ -85,6 +80,7 @@ export default function RecommendationPanel({
   const lastAgentMessageId = [...messages]
     .reverse()
     .find((message) => message.type === "agent")?.id;
+  const lastMessageIsAgent = messages[messages.length - 1]?.type === "agent";
 
   const markAgentTyped = useCallback((messageId: string) => {
     setTypedAgentMessageIds((currentIds) => {
@@ -110,11 +106,9 @@ export default function RecommendationPanel({
     pendingFoodAppendRef.current = true;
     setActionableFoodMessageId(null);
     setShowThinking(true);
-    setMode("food");
     setMessages((current) => [
       ...current,
       { type: "user", id: createMessageId(), text: trimmedPrompt },
-      { type: "agent", id: createMessageId(), text: foodAgentText },
     ]);
     void recommend(trimmedPrompt);
   }, [isExpanded, recommend, userPrompt]);
@@ -138,21 +132,49 @@ export default function RecommendationPanel({
     if (!currentFood || !status) return;
 
     const foodMessageId = createMessageId();
-
     pendingFoodAppendRef.current = false;
-    queueMicrotask(() => {
+    let cancelled = false;
+
+    const appendFood = () => {
+      if (cancelled) return;
       setShowThinking(false);
-      setActionableFoodMessageId(foodMessageId);
-      setMessages((currentMessages) => [
-        ...currentMessages,
-        { type: "food", id: foodMessageId, food: currentFood, status },
-      ]);
-    });
+      if (appendTimerRef.current) clearTimeout(appendTimerRef.current);
+      appendTimerRef.current = setTimeout(() => {
+        if (cancelled) return;
+        setActionableFoodMessageId(foodMessageId);
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          { type: "food", id: foodMessageId, food: currentFood, status },
+        ]);
+      }, 220);
+    };
+
+    let preloadImg: HTMLImageElement | null = null;
+    if (currentFood.imageUrl) {
+      preloadImg = new Image();
+      preloadImg.onload = appendFood;
+      preloadImg.onerror = appendFood;
+      preloadImg.src = currentFood.imageUrl;
+    } else {
+      queueMicrotask(appendFood);
+    }
+
+    return () => {
+      cancelled = true;
+      if (preloadImg) {
+        preloadImg.onload = null;
+        preloadImg.onerror = null;
+      }
+      if (appendTimerRef.current) {
+        clearTimeout(appendTimerRef.current);
+        appendTimerRef.current = null;
+      }
+    };
   }, [currentFood, error, loading, status]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [loading, messages, mode, showThinking, typedAgentMessageIds, scrollToBottom]);
+  }, [loading, messages, showThinking, typedAgentMessageIds, scrollToBottom]);
 
   function handleCardClick(place: RecommendationPlace) {
     onSelectPlace?.(selectedPlaceId === place.id ? null : place);
@@ -172,11 +194,9 @@ export default function RecommendationPanel({
     pendingFoodAppendRef.current = true;
     setActionableFoodMessageId(null);
     setShowThinking(true);
-    setMode("food");
     setMessages((currentMessages) => [
       ...currentMessages,
       { type: "user", id: createMessageId(), text: trimmed },
-      { type: "agent", id: createMessageId(), text: foodAgentText },
     ]);
     void recommend(trimmed);
     setInput("");
@@ -185,7 +205,6 @@ export default function RecommendationPanel({
   function handleLikeFood() {
     setActionableFoodMessageId(null);
     setShowThinking(false);
-    setMode("place");
     setMessages((currentMessages) => [
       ...currentMessages,
       {
@@ -201,7 +220,6 @@ export default function RecommendationPanel({
     pendingFoodAppendRef.current = true;
     setActionableFoodMessageId(null);
     setShowThinking(true);
-    setMode("food");
     setMessages((currentMessages) => [
       ...currentMessages,
       {
@@ -286,15 +304,11 @@ export default function RecommendationPanel({
                 }
 
                 if (message.type === "agent") {
-                  const isNew =
-                    message.id === lastAgentMessageId &&
-                    !typedAgentMessageIds.has(message.id);
-                  const shouldShowThinking =
-                    loading && showThinking && message.id === lastAgentMessageId;
+                  if (!message.text) return null;
 
-                  if (!message.text && !shouldShowThinking) {
-                    return null;
-                  }
+                  const isLastAgent = message.id === lastAgentMessageId;
+                  const isNew = isLastAgent && !typedAgentMessageIds.has(message.id);
+                  const showInlineThinking = showThinking && isLastAgent && lastMessageIsAgent;
 
                   return (
                     <motion.div
@@ -310,7 +324,18 @@ export default function RecommendationPanel({
                           isNew={isNew}
                           onDone={() => markAgentTyped(message.id)}
                         />
-                        {shouldShowThinking && <ThinkingIndicator />}
+                        <AnimatePresence>
+                          {showInlineThinking && (
+                            <motion.span
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0, transition: { duration: 0.18 } }}
+                              transition={{ duration: 0.18 }}
+                            >
+                              <ThinkingIndicator />
+                            </motion.span>
+                          )}
+                        </AnimatePresence>
                       </p>
                     </motion.div>
                   );
@@ -323,9 +348,9 @@ export default function RecommendationPanel({
                     <motion.div
                       key={message.id}
                       className={styles.resultsBlock}
-                      initial={{ opacity: 0, y: 16 }}
+                      initial={{ opacity: 0, y: 12 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
+                      transition={{ duration: 0.32 }}
                     >
                       <FoodCard
                         key={message.id}
@@ -409,6 +434,20 @@ export default function RecommendationPanel({
                   </motion.div>
                 );
               })}
+
+              <AnimatePresence>
+                {showThinking && !lastMessageIsAgent && (
+                  <motion.div
+                    className={styles.agentReply}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -8, transition: { duration: 0.18 } }}
+                    transition={{ duration: 0.22 }}
+                  >
+                    <p><ThinkingIndicator /></p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               <div ref={bottomRef} />
             </section>

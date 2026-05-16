@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { FoodRecommendItem } from "@/features/recommendation/types/food.types";
 import styles from "./FoodCard.module.css";
@@ -9,8 +8,6 @@ import styles from "./FoodCard.module.css";
 interface FoodCardProps {
   food: FoodRecommendItem | null;
   status: "SUCCESS" | "FALLBACK" | null;
-  loading?: boolean;
-  error?: string | null;
   actionsDisabled?: boolean;
   onLike: () => void;
   onDislike: () => void;
@@ -20,65 +17,19 @@ interface FoodCardProps {
 export default function FoodCard({
   food,
   status,
-  loading = false,
-  error = null,
   actionsDisabled = false,
   onLike,
   onDislike,
   onReady,
 }: FoodCardProps) {
-  const [imageLoaded, setImageLoaded] = useState(() => !food?.imageUrl);
-
   useEffect(() => {
-    if (food && !food.imageUrl) onReady?.();
-  }, [food, onReady]);
+    onReady?.();
+  }, [onReady]);
 
-  useEffect(() => {
-    if (imageLoaded && food?.imageUrl) onReady?.();
-  }, [imageLoaded, food?.imageUrl, onReady]);
-
-  useEffect(() => {
-    if (!food?.imageUrl) return;
-
-    const image = new Image();
-    image.src = food.imageUrl;
-    image.onload = () => setImageLoaded(true);
-    image.onerror = () => setImageLoaded(true);
-
-    return () => {
-      image.onload = null;
-      image.onerror = null;
-    };
-  }, [food?.imageUrl]);
-
-  if (loading) {
-    return (
-      <article className={styles.card} aria-busy="true">
-        <div className={styles.loadingText}>
-          골라드림이 메뉴를 고르는 중이에요
-          <span className={styles.loadingDots} aria-hidden="true" />
-        </div>
-      </article>
-    );
-  }
-
-  if (error) {
-    return (
-      <article className={styles.card}>
-        <p className={styles.error}>{error}</p>
-      </article>
-    );
-  }
-
-  if (!food || !imageLoaded) return null;
+  if (!food) return null;
 
   return (
-    <motion.article
-      className={styles.card}
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <article className={styles.card}>
       <div className={styles.content}>
         {status === "FALLBACK" && (
           <p className={styles.fallback}>
@@ -132,6 +83,6 @@ export default function FoodCard({
           </button>
         </div>
       </div>
-    </motion.article>
+    </article>
   );
 }
