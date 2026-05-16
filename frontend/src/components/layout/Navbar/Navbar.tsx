@@ -35,7 +35,7 @@ export default function Navbar() {
       <header className={styles.navbar}>
         <div className={styles.brand}>
           <BrandLogo size="nav" />
-          <span className={styles.brandTagline}>AI가 제안하는 맞춤 스팟</span>
+          <span className={styles.brandTagline}>AI가 제안하는 맞춤 선택</span>
         </div>
 
         <div className={styles.actions}>

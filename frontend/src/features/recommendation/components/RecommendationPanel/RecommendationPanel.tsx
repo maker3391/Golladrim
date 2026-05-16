@@ -16,6 +16,7 @@ type ChatPanelState = "collapsed" | "expanded";
 type ChatMessage =
   | { type: "user"; id: string; text: string }
   | { type: "agent"; id: string; text: string }
+  | { type: "thinking"; id: string }
   | {
       type: "food";
       id: string;
@@ -55,19 +56,27 @@ export default function RecommendationPanel({
   const [typedAgentMessageIds, setTypedAgentMessageIds] = useState<Set<string>>(
     () => new Set(),
   );
-  const [showThinking, setShowThinking] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const hasInitializedPromptRef = useRef(false);
   const pendingFoodAppendRef = useRef(false);
-  const appendTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingThinkingMessageIdRef = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const conversationRef = useRef<HTMLElement | null>(null);
   const { currentFood, status, loading, error, recommend, retry } =
     useFoodRecommendation();
 
   const scrollToBottom = useCallback((smooth = false) => {
-    bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "instant", block: "end" });
+    bottomRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "instant",
+      block: "end",
+    });
   }, []);
+
+  const scrollToBottomAfterLayout = useCallback(() => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => scrollToBottom());
+    });
+  }, [scrollToBottom]);
 
   function handleConversationScroll() {
     const el = conversationRef.current;
@@ -80,7 +89,6 @@ export default function RecommendationPanel({
   const lastAgentMessageId = [...messages]
     .reverse()
     .find((message) => message.type === "agent")?.id;
-  const lastMessageIsAgent = messages[messages.length - 1]?.type === "agent";
 
   const markAgentTyped = useCallback((messageId: string) => {
     setTypedAgentMessageIds((currentIds) => {
@@ -104,11 +112,13 @@ export default function RecommendationPanel({
 
     hasInitializedPromptRef.current = true;
     pendingFoodAppendRef.current = true;
+    const thinkingMessageId = createMessageId();
+    pendingThinkingMessageIdRef.current = thinkingMessageId;
     setActionableFoodMessageId(null);
-    setShowThinking(true);
     setMessages((current) => [
       ...current,
       { type: "user", id: createMessageId(), text: trimmedPrompt },
+      { type: "thinking", id: thinkingMessageId },
     ]);
     void recommend(trimmedPrompt);
   }, [isExpanded, recommend, userPrompt]);
@@ -117,36 +127,48 @@ export default function RecommendationPanel({
     if (loading || !pendingFoodAppendRef.current) return;
 
     if (error) {
+      const pendingThinkingMessageId = pendingThinkingMessageIdRef.current;
       pendingFoodAppendRef.current = false;
+      pendingThinkingMessageIdRef.current = null;
       queueMicrotask(() => {
-        setShowThinking(false);
         setActionableFoodMessageId(null);
-        setMessages((currentMessages) => [
-          ...currentMessages,
-          { type: "agent", id: createMessageId(), text: error },
-        ]);
+        setMessages((currentMessages) => {
+          if (!pendingThinkingMessageId) return currentMessages;
+
+          return currentMessages.map((message) =>
+            message.id === pendingThinkingMessageId
+              ? { type: "agent" as const, id: message.id, text: error }
+              : message,
+          );
+        });
       });
       return;
     }
 
     if (!currentFood || !status) return;
 
-    const foodMessageId = createMessageId();
+    const foodMessageId = pendingThinkingMessageIdRef.current;
+    if (!foodMessageId) return;
+
     pendingFoodAppendRef.current = false;
+    pendingThinkingMessageIdRef.current = null;
     let cancelled = false;
 
     const appendFood = () => {
       if (cancelled) return;
-      setShowThinking(false);
-      if (appendTimerRef.current) clearTimeout(appendTimerRef.current);
-      appendTimerRef.current = setTimeout(() => {
-        if (cancelled) return;
-        setActionableFoodMessageId(foodMessageId);
-        setMessages((currentMessages) => [
-          ...currentMessages,
-          { type: "food", id: foodMessageId, food: currentFood, status },
-        ]);
-      }, 220);
+      setActionableFoodMessageId(foodMessageId);
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          message.id === foodMessageId
+            ? {
+                type: "food" as const,
+                id: message.id,
+                food: currentFood,
+                status,
+              }
+            : message,
+        ),
+      );
     };
 
     let preloadImg: HTMLImageElement | null = null;
@@ -165,16 +187,12 @@ export default function RecommendationPanel({
         preloadImg.onload = null;
         preloadImg.onerror = null;
       }
-      if (appendTimerRef.current) {
-        clearTimeout(appendTimerRef.current);
-        appendTimerRef.current = null;
-      }
     };
   }, [currentFood, error, loading, status]);
 
   useEffect(() => {
     scrollToBottom();
-  }, [loading, messages, showThinking, typedAgentMessageIds, scrollToBottom]);
+  }, [messages, typedAgentMessageIds, scrollToBottom]);
 
   function handleCardClick(place: RecommendationPlace) {
     onSelectPlace?.(selectedPlaceId === place.id ? null : place);
@@ -192,11 +210,13 @@ export default function RecommendationPanel({
 
     hasInitializedPromptRef.current = true;
     pendingFoodAppendRef.current = true;
+    const thinkingMessageId = createMessageId();
+    pendingThinkingMessageIdRef.current = thinkingMessageId;
     setActionableFoodMessageId(null);
-    setShowThinking(true);
     setMessages((currentMessages) => [
       ...currentMessages,
       { type: "user", id: createMessageId(), text: trimmed },
+      { type: "thinking", id: thinkingMessageId },
     ]);
     void recommend(trimmed);
     setInput("");
@@ -204,7 +224,6 @@ export default function RecommendationPanel({
 
   function handleLikeFood() {
     setActionableFoodMessageId(null);
-    setShowThinking(false);
     setMessages((currentMessages) => [
       ...currentMessages,
       {
@@ -218,8 +237,9 @@ export default function RecommendationPanel({
 
   function handleDislikeFood() {
     pendingFoodAppendRef.current = true;
+    const thinkingMessageId = createMessageId();
+    pendingThinkingMessageIdRef.current = thinkingMessageId;
     setActionableFoodMessageId(null);
-    setShowThinking(true);
     setMessages((currentMessages) => [
       ...currentMessages,
       {
@@ -227,6 +247,7 @@ export default function RecommendationPanel({
         id: createMessageId(),
         text: "다른 메뉴를 찾아볼게요",
       },
+      { type: "thinking", id: thinkingMessageId },
     ]);
     void retry();
   }
@@ -288,82 +309,68 @@ export default function RecommendationPanel({
           aria-label="AI 추천 대화"
           onScroll={handleConversationScroll}
         >
-              {messages.map((message, index) => {
-                if (message.type === "user") {
-                  return (
-                    <motion.div
-                      key={message.id}
-                      className={styles.userPrompt}
-                      initial={{ opacity: 0, x: 20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.22 }}
-                    >
-                      <p>{message.text}</p>
-                    </motion.div>
-                  );
-                }
+          <AnimatePresence initial={false}>
+            {messages.map((message, index) => {
+              if (message.type === "user") {
+                return (
+                  <motion.div
+                    key={message.id}
+                    className={styles.userPrompt}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.22 }}
+                  >
+                    <p>{message.text}</p>
+                  </motion.div>
+                );
+              }
 
-                if (message.type === "agent") {
-                  if (!message.text) return null;
+              if (message.type === "thinking") {
+                if (messages[index - 1]?.type === "agent") return null;
 
-                  const isLastAgent = message.id === lastAgentMessageId;
-                  const isNew = isLastAgent && !typedAgentMessageIds.has(message.id);
-                  const showInlineThinking = showThinking && isLastAgent && lastMessageIsAgent;
+                return (
+                  <motion.div
+                    key={message.id}
+                    className={styles.agentReply}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, transition: { duration: 0.15 } }}
+                    transition={{ duration: 0.22 }}
+                  >
+                    <p><ThinkingIndicator /></p>
+                  </motion.div>
+                );
+              }
 
-                  return (
-                    <motion.div
-                      key={message.id}
-                      className={styles.agentReply}
-                      initial={{ opacity: 0, x: -16 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.24, delay: 0.04 }}
-                    >
-                      <p>
-                        <TypingText
-                          text={message.text}
-                          isNew={isNew}
-                          onDone={() => markAgentTyped(message.id)}
-                        />
-                        <AnimatePresence>
-                          {showInlineThinking && (
-                            <motion.span
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0, transition: { duration: 0.18 } }}
-                              transition={{ duration: 0.18 }}
-                            >
-                              <ThinkingIndicator />
-                            </motion.span>
-                          )}
-                        </AnimatePresence>
-                      </p>
-                    </motion.div>
-                  );
-                }
+              if (message.type === "agent") {
+                if (!message.text) return null;
 
-                if (message.type === "food") {
-                  if (!canShowFoodCard(index)) return null;
+                const isLastAgent = message.id === lastAgentMessageId;
+                const isNew = isLastAgent && !typedAgentMessageIds.has(message.id);
+                const showInlineThinking = messages[index + 1]?.type === "thinking";
 
-                  return (
-                    <motion.div
-                      key={message.id}
-                      className={styles.resultsBlock}
-                      initial={{ opacity: 0, y: 12 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.32 }}
-                    >
-                      <FoodCard
-                        key={message.id}
-                        food={message.food}
-                        status={message.status}
-                        actionsDisabled={message.id !== actionableFoodMessageId}
-                        onLike={handleLikeFood}
-                        onDislike={handleDislikeFood}
-                        onReady={scrollToBottom}
+                return (
+                  <motion.div
+                    key={message.id}
+                    className={styles.agentReply}
+                    initial={{ opacity: 0, x: -16 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.24, delay: 0.04 }}
+                  >
+                    <p>
+                      <TypingText
+                        text={message.text}
+                        isNew={isNew}
+                        onDone={() => markAgentTyped(message.id)}
                       />
-                    </motion.div>
-                  );
-                }
+                      {showInlineThinking && <ThinkingIndicator />}
+                    </p>
+                  </motion.div>
+                );
+              }
+
+              if (message.type === "food") {
+                if (!canShowFoodCard(index)) return null;
 
                 return (
                   <motion.div
@@ -371,124 +378,132 @@ export default function RecommendationPanel({
                     className={styles.resultsBlock}
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.24, delay: 0.16 }}
+                    transition={{ duration: 0.32 }}
                   >
-                    <div className={styles.resultsHeader}>
-                      <strong>추천 결과</strong>
-                      <span>
-                        {hasPlaces ? `${places.length}곳 근처 후보` : "준비 중"}
-                      </span>
-                    </div>
-
-                    {hasPlaces && (
-                      <div className={styles.resultList}>
-                        {places.map((place, placeIndex) => (
-                          <motion.article
-                            key={place.id}
-                            className={`${styles.resultCard} ${
-                              selectedPlaceId === place.id ? styles.active : ""
-                            }`}
-                            onClick={() => handleCardClick(place)}
-                            aria-pressed={selectedPlaceId === place.id}
-                            role="button"
-                            tabIndex={0}
-                            onKeyDown={(event) =>
-                              event.key === "Enter" && handleCardClick(place)
-                            }
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{
-                              duration: 0.22,
-                              delay: 0.22 + placeIndex * 0.06,
-                            }}
-                          >
-                            <div className={styles.cardIndex}>{place.id}</div>
-                            <div className={styles.cardBody}>
-                              <h2>{place.name}</h2>
-                              <p className={styles.cardMeta}>{place.meta}</p>
-                              <p className={styles.cardDescription}>
-                                {place.description}
-                              </p>
-                              <div
-                                className={styles.tags}
-                                aria-label={`${place.name} 태그`}
-                              >
-                                {place.tags.map((tag) => (
-                                  <span key={tag}>{tag}</span>
-                                ))}
-                              </div>
-                            </div>
-                          </motion.article>
-                        ))}
-                      </div>
-                    )}
-
-                    <button
-                      className={styles.mapCta}
-                      type="button"
-                      onClick={handleShowAll}
-                    >
-                      <MapPinned aria-hidden="true" size={17} strokeWidth={2.2} />
-                      <span>추천 장소 위치 보기</span>
-                    </button>
+                    <FoodCard
+                      key={message.id}
+                      food={message.food}
+                      status={message.status}
+                      actionsDisabled={message.id !== actionableFoodMessageId}
+                      onLike={handleLikeFood}
+                      onDislike={handleDislikeFood}
+                      onReady={scrollToBottomAfterLayout}
+                    />
                   </motion.div>
                 );
-              })}
+              }
 
-              <AnimatePresence>
-                {showThinking && !lastMessageIsAgent && (
-                  <motion.div
-                    className={styles.agentReply}
-                    initial={{ opacity: 0, x: -16 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -8, transition: { duration: 0.18 } }}
-                    transition={{ duration: 0.22 }}
-                  >
-                    <p><ThinkingIndicator /></p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              <div ref={bottomRef} />
-            </section>
-
-            <AnimatePresence>
-              {showScrollBtn && (
-                <motion.button
-                  className={styles.scrollToBottomBtn}
-                  type="button"
-                  aria-label="최신 메시지로 이동"
-                  initial={{ opacity: 0, y: 6 }}
+              return (
+                <motion.div
+                  key={message.id}
+                  className={styles.resultsBlock}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 6 }}
-                  transition={{ duration: 0.15 }}
-                  onClick={() => scrollToBottom(true)}
+                  transition={{ duration: 0.24, delay: 0.16 }}
                 >
-                  <ArrowDown aria-hidden="true" size={15} strokeWidth={2.4} />
-                </motion.button>
-              )}
-            </AnimatePresence>
+                  <div className={styles.resultsHeader}>
+                    <strong>추천 결과</strong>
+                    <span>
+                      {hasPlaces ? `${places.length}곳 근처 후보` : "준비 중"}
+                    </span>
+                  </div>
 
-            <footer className={styles.footer}>
-              <form className={styles.composer} onSubmit={handleSubmit}>
-                <input
-                  className={styles.composerInput}
-                  type="text"
-                  placeholder="상황이나 먹고 싶은 메뉴를 입력해보세요"
-                  value={input}
-                  onChange={(event) => setInput(event.target.value)}
-                  aria-label="AI 추천 요청 입력"
-                />
-                <button
-                  className={styles.composerBtn}
-                  type="submit"
-                  aria-label="AI에게 추천 요청 보내기"
-                  disabled={!input.trim() || loading}
-                >
-                  <ArrowUp aria-hidden="true" size={16} strokeWidth={2.3} />
-                </button>
-              </form>
-            </footer>
+                  {hasPlaces && (
+                    <div className={styles.resultList}>
+                      {places.map((place, placeIndex) => (
+                        <motion.article
+                          key={place.id}
+                          className={`${styles.resultCard} ${
+                            selectedPlaceId === place.id ? styles.active : ""
+                          }`}
+                          onClick={() => handleCardClick(place)}
+                          aria-pressed={selectedPlaceId === place.id}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(event) =>
+                            event.key === "Enter" && handleCardClick(place)
+                          }
+                          initial={{ opacity: 0, y: 12 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{
+                            duration: 0.22,
+                            delay: 0.22 + placeIndex * 0.06,
+                          }}
+                        >
+                          <div className={styles.cardIndex}>{place.id}</div>
+                          <div className={styles.cardBody}>
+                            <h2>{place.name}</h2>
+                            <p className={styles.cardMeta}>{place.meta}</p>
+                            <p className={styles.cardDescription}>
+                              {place.description}
+                            </p>
+                            <div
+                              className={styles.tags}
+                              aria-label={`${place.name} 태그`}
+                            >
+                              {place.tags.map((tag) => (
+                                <span key={tag}>{tag}</span>
+                              ))}
+                            </div>
+                          </div>
+                        </motion.article>
+                      ))}
+                    </div>
+                  )}
+
+                  <button
+                    className={styles.mapCta}
+                    type="button"
+                    onClick={handleShowAll}
+                  >
+                    <MapPinned aria-hidden="true" size={17} strokeWidth={2.2} />
+                    <span>추천 장소 위치 보기</span>
+                  </button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+
+          <div ref={bottomRef} />
+        </section>
+
+        <AnimatePresence>
+          {showScrollBtn && (
+            <motion.button
+              className={styles.scrollToBottomBtn}
+              type="button"
+              aria-label="최신 메시지로 이동"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.15 }}
+              onClick={() => scrollToBottom(true)}
+            >
+              <ArrowDown aria-hidden="true" size={15} strokeWidth={2.4} />
+            </motion.button>
+          )}
+        </AnimatePresence>
+
+        <footer className={styles.footer}>
+          <form className={styles.composer} onSubmit={handleSubmit}>
+            <input
+              className={styles.composerInput}
+              type="text"
+              placeholder="상황이나 먹고 싶은 메뉴를 입력해보세요"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              aria-label="AI 추천 요청 입력"
+            />
+            <button
+              className={styles.composerBtn}
+              type="submit"
+              aria-label="AI에게 추천 요청 보내기"
+              disabled={!input.trim() || loading}
+            >
+              <ArrowUp aria-hidden="true" size={16} strokeWidth={2.3} />
+            </button>
+          </form>
+        </footer>
       </motion.aside>
     </div>
   );
