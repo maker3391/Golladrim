@@ -27,6 +27,12 @@ export const metadata: Metadata = {
   authors: [{ name: "골라드림" }],
   creator: "골라드림",
   metadataBase: new URL("https://golladrim.com"),
+  verification: {
+    google: "voxPEYTNM8z82Yd0mFRYqeRZAXfzbsCQ6WANGH98XvQ",
+    other: {
+      "naver-site-verification": "09138d325a3a37078415de527c9e8be5ddf7bf77",
+    },
+  },
   openGraph: {
     type: "website",
     locale: "ko_KR",
