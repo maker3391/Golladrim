@@ -21,11 +21,15 @@ export default function TypingText({ text, isNew, onDone }: TypingTextProps) {
     doneRef.current = false;
 
     if (!isNew) {
-      setVisibleText(text);
+      queueMicrotask(() => {
+        setVisibleText(text);
+      });
       return;
     }
 
-    setVisibleText("");
+    queueMicrotask(() => {
+      setVisibleText("");
+    });
 
     if (!text) {
       if (!doneRef.current) {

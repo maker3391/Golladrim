@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -110,23 +110,29 @@ export default function LocationConfirmSheet({
     if (!isOpen) return;
 
     if (lat == null || lng == null) {
-      setAddressLabel("위치 확인 중...");
+      queueMicrotask(() => {
+        setAddressLabel("위치 확인 중...");
+      });
       return;
     }
 
     let cancelled = false;
-    setAddressLabel("위치 확인 중...");
+    queueMicrotask(() => {
+      if (!cancelled) {
+        setAddressLabel("위치 확인 중...");
+      }
+    });
 
     reverseGeocodeWithKakaoServices(lat, lng)
       .then(async (address) => {
         if (cancelled) return;
         const fallbackAddress = address || (await fetchGeocode(lat, lng));
         if (cancelled) return;
-        setAddressLabel(fallbackAddress ? `${fallbackAddress} 기준` : "현재 위치 기준");
+        setAddressLabel(fallbackAddress ? fallbackAddress : "현재 위치");
       })
       .catch(() => {
         if (cancelled) return;
-        setAddressLabel("현재 위치 기준");
+        setAddressLabel("현재 위치");
       });
 
     return () => {
@@ -167,23 +173,24 @@ export default function LocationConfirmSheet({
 
             <header className={styles.header}>
               <p className={styles.eyebrow}>검색 위치</p>
-              <h2>{addressLabel}</h2>
+              <div className={styles.addressRow}>
+                <h2>{addressLabel}</h2>
+                <div className={styles.radiusGroup} aria-label="검색 반경 선택">
+                  {RADIUS_OPTIONS.map((radius) => (
+                    <button
+                      key={radius}
+                      className={`${styles.radiusChip} ${
+                        selectedRadius === radius ? styles.radiusChipActive : ""
+                      }`}
+                      type="button"
+                      onClick={() => setSelectedRadius(radius)}
+                    >
+                      {formatRadius(radius)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </header>
-
-            <div className={styles.radiusGroup} aria-label="검색 반경 선택">
-              {RADIUS_OPTIONS.map((radius) => (
-                <button
-                  key={radius}
-                  className={`${styles.radiusChip} ${
-                    selectedRadius === radius ? styles.radiusChipActive : ""
-                  }`}
-                  type="button"
-                  onClick={() => setSelectedRadius(radius)}
-                >
-                  {formatRadius(radius)}
-                </button>
-              ))}
-            </div>
 
             <div className={styles.actions}>
               <button
@@ -191,7 +198,7 @@ export default function LocationConfirmSheet({
                 type="button"
                 onClick={onChangeLocation}
               >
-                위치 바꾸기
+                지도에서 선택
               </button>
               <button
                 className={styles.primaryButton}

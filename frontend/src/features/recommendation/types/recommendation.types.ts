@@ -9,6 +9,7 @@ export type PlaceRecommendRequest = {
   foodName: string;
   latitude: number;
   longitude: number;
+  radius?: number;
 };
 
 export type PlaceResponse = {

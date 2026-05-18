@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
-import { LocateFixed } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { LocateFixed, MapPin } from "lucide-react";
 import { KAKAO_MAP_APP_KEY } from "@/features/map/components/KakaoMapSdkScript";
 import { loadKakaoMapSdk } from "@/features/map/utils/loadKakaoMapSdk";
 import styles from "./MapPanel.module.css";
@@ -88,13 +88,30 @@ interface UserLocation {
   longitude: number;
 }
 
+interface MapPlace {
+  latitude: number | null;
+  longitude: number | null;
+  name: string;
+}
+
 interface MapPanelProps {
   location?: { latitude: number; longitude: number; name: string };
+  places?: MapPlace[];
+  searchLocation?: { lat: number; lng: number } | null;
+  searchRadius?: number;
   layoutVersion?: number;
   locateTrigger?: number;
   onLocationPin?: (lat: number, lng: number) => void;
   onUserLocationChange?: (location: { lat: number; lng: number } | null) => void;
+  onCurrentLocationRequest?: () => void;
   interactive?: boolean;
+}
+
+function radiusToMapLevel(radius: number | undefined): number {
+  if (radius === undefined) return DEFAULT_MAP_LEVEL;
+  if (radius <= 500) return 5;
+  if (radius <= 1000) return 6;
+  return 7;
 }
 
 function escapeHtml(value: string) {
@@ -108,26 +125,38 @@ function escapeHtml(value: string) {
 
 export default function MapPanel({
   location,
+  places = [],
+  searchLocation = null,
+  searchRadius,
   layoutVersion = 0,
   locateTrigger = 0,
   onLocationPin,
   onUserLocationChange,
+  onCurrentLocationRequest,
   interactive = true,
 }: MapPanelProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<KakaoMap | null>(null);
+  const placeOverlaysRef = useRef<KakaoCustomOverlay[]>([]);
   const selectedPlaceOverlayRef = useRef<KakaoCustomOverlay | null>(null);
   const userLocationOverlayRef = useRef<KakaoCustomOverlay | null>(null);
   const latestLocationRef = useRef<MapPanelProps["location"]>(location);
+  const latestSearchLocationRef = useRef(searchLocation);
   const onLocationPinRef = useRef(onLocationPin);
   const onUserLocationChangeRef = useRef(onUserLocationChange);
   const cachedCoordsRef = useRef<CachedCoords | null>(null);
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const locationControlRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     latestLocationRef.current = location;
   }, [location]);
+
+  useEffect(() => {
+    latestSearchLocationRef.current = searchLocation;
+  }, [searchLocation]);
 
   useEffect(() => {
     onLocationPinRef.current = onLocationPin;
@@ -155,6 +184,12 @@ export default function MapPanel({
     const latestLocation = latestLocationRef.current;
     if (latestLocation) {
       map.setCenter(new maps.LatLng(latestLocation.latitude, latestLocation.longitude));
+      return;
+    }
+
+    const latestSearchLocation = latestSearchLocationRef.current;
+    if (latestSearchLocation) {
+      map.setCenter(new maps.LatLng(latestSearchLocation.lat, latestSearchLocation.lng));
     }
   }, []);
 
@@ -203,9 +238,6 @@ export default function MapPanel({
       const mapInstance = new maps.Map(mapRef.current, {
         center,
         level: DEFAULT_MAP_LEVEL,
-        draggable: interactive,
-        scrollwheel: interactive,
-        disableDoubleClickZoom: !interactive,
       });
       mapInstanceRef.current = mapInstance;
 
@@ -239,8 +271,18 @@ export default function MapPanel({
 
     loadKakaoMapSdk()
       .then(() => {
-        initMap(37.5665, 126.9780);
-        moveToCurrentLocation(false);
+        const isMobile = navigator.maxTouchPoints > 0;
+        const saved = isMobile ? null : latestSearchLocationRef.current;
+        const initialLat = saved?.lat ?? 37.5665;
+        const initialLng = saved?.lng ?? 126.9780;
+
+        initMap(initialLat, initialLng);
+
+        if (saved) {
+          setUserLocation({ latitude: saved.lat, longitude: saved.lng });
+        } else {
+          moveToCurrentLocation(false);
+        }
       })
       .catch(() => {
         if (isMounted) {
@@ -250,6 +292,8 @@ export default function MapPanel({
 
     return () => {
       isMounted = false;
+      placeOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
+      placeOverlaysRef.current = [];
       userLocationOverlayRef.current?.setMap(null);
       userLocationOverlayRef.current = null;
       selectedPlaceOverlayRef.current?.setMap(null);
@@ -264,6 +308,23 @@ export default function MapPanel({
     map.setDraggable(interactive);
     map.setZoomable(interactive);
   }, [interactive]);
+
+  useEffect(() => {
+    const maps = window.kakao?.maps;
+    const map = mapInstanceRef.current;
+    if (!maps || !map || !searchLocation) return;
+
+    const position = new maps.LatLng(searchLocation.lat, searchLocation.lng);
+    setUserLocation({
+      latitude: searchLocation.lat,
+      longitude: searchLocation.lng,
+    });
+
+    if (!location) {
+      map.setCenter(position);
+      map.setLevel(FOCUSED_MAP_LEVEL);
+    }
+  }, [location, searchLocation]);
 
   useEffect(() => {
     const mapSurface = mapRef.current;
@@ -325,6 +386,44 @@ export default function MapPanel({
     const map = mapInstanceRef.current;
     if (!maps || !map) return;
 
+    placeOverlaysRef.current.forEach((overlay) => overlay.setMap(null));
+    placeOverlaysRef.current = [];
+
+    const validPlaces = places.filter(
+      (place) => place.latitude != null && place.longitude != null,
+    );
+
+    if (validPlaces.length === 0) return;
+
+    placeOverlaysRef.current = validPlaces.map((place, index) => {
+      const pos = new maps.LatLng(place.latitude as number, place.longitude as number);
+      return new maps.CustomOverlay({
+        map,
+        position: pos,
+        content: `
+          <div class="${styles.placeNameOverlay}">
+            <span class="${styles.placeNameIndex}">${index + 1}</span>
+            <span class="${styles.placeNameText}">${escapeHtml(place.name)}</span>
+          </div>
+        `,
+        xAnchor: 0.5,
+        yAnchor: 1.08,
+        zIndex: 9,
+      });
+    });
+
+    if (!location) {
+      const firstPlace = validPlaces[0];
+      map.setCenter(new maps.LatLng(firstPlace.latitude as number, firstPlace.longitude as number));
+      map.setLevel(radiusToMapLevel(searchRadius));
+    }
+  }, [location, places, searchRadius]);
+
+  useEffect(() => {
+    const maps = window.kakao?.maps;
+    const map = mapInstanceRef.current;
+    if (!maps || !map) return;
+
     if (!location) {
       selectedPlaceOverlayRef.current?.setMap(null);
       selectedPlaceOverlayRef.current = null;
@@ -337,9 +436,9 @@ export default function MapPanel({
       map,
       position: pos,
       content: `
-        <div class="${styles.selectedPlaceOverlay}">
-          <span>${escapeHtml(location.name)}</span>
-          <i aria-hidden="true"></i>
+        <div class="${styles.placeNameOverlay} ${styles.selectedPlaceNameOverlay}">
+          <span class="${styles.placeNameIndex} ${styles.selectedPlaceNameIndex}">*</span>
+          <span class="${styles.placeNameText}">${escapeHtml(location.name)}</span>
         </div>
       `,
       xAnchor: 0.5,
@@ -363,6 +462,17 @@ export default function MapPanel({
     return () => window.clearTimeout(id);
   }, [locateTrigger, moveToCurrentLocation]);
 
+  useEffect(() => {
+    if (!isPopupOpen) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (locationControlRef.current && !locationControlRef.current.contains(e.target as Node)) {
+        setIsPopupOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [isPopupOpen]);
+
   if (!KAKAO_MAP_APP_KEY) {
     return (
       <section className={styles.panel} aria-label="지도 영역">
@@ -376,16 +486,63 @@ export default function MapPanel({
   return (
     <section className={styles.panel} aria-label="지도 영역">
       <div ref={mapRef} className={styles.mapSurface} />
-      <div className={styles.locationControl}>
+      <div ref={locationControlRef} className={styles.locationControl}>
+        <AnimatePresence>
+          {isPopupOpen && (
+            <motion.div
+              className={styles.locationPopup}
+              initial={{ opacity: 0, y: 6, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 6, scale: 0.96 }}
+              transition={{ duration: 0.18 }}
+            >
+              {searchLocation && (
+                <button
+                  className={styles.locationPopupItem}
+                  type="button"
+                  onClick={() => {
+                    setIsPopupOpen(false);
+                    const maps = window.kakao?.maps;
+                    const map = mapInstanceRef.current;
+                    if (maps && map) {
+                      map.setCenter(new maps.LatLng(searchLocation.lat, searchLocation.lng));
+                      map.setLevel(
+                        places.length > 0
+                          ? radiusToMapLevel(searchRadius)
+                          : FOCUSED_MAP_LEVEL,
+                      );
+                      setUserLocation({ latitude: searchLocation.lat, longitude: searchLocation.lng });
+                    }
+                  }}
+                >
+                  <MapPin size={14} strokeWidth={2.2} aria-hidden="true" />
+                  내가 설정한 위치로 이동
+                </button>
+              )}
+              <button
+                className={styles.locationPopupItem}
+                type="button"
+                onClick={() => {
+                  setIsPopupOpen(false);
+                  onCurrentLocationRequest?.();
+                  moveToCurrentLocation(true);
+                }}
+              >
+                <LocateFixed size={14} strokeWidth={2.2} aria-hidden="true" />
+                GPS 위치로 이동
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
         <motion.button
           className={styles.locationButton}
           type="button"
-          aria-label="현재 위치로 이동"
-          title="현재 위치로 이동"
+          aria-label="위치 이동 옵션"
+          title="위치 이동 옵션"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.94 }}
           transition={{ type: "spring", stiffness: 420, damping: 28 }}
-          onClick={() => moveToCurrentLocation(true)}
+          onClick={() => setIsPopupOpen((open) => !open)}
         >
           <LocateFixed className={styles.locationIcon} aria-hidden="true" size={18} strokeWidth={2.2} />
         </motion.button>

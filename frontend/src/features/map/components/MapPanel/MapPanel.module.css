@@ -187,6 +187,110 @@
   background: #0f766e;
 }
 
+.placeNameOverlay {
+  position: relative;
+  width: max-content;
+  max-width: min(420px, calc(100vw - 48px));
+  min-height: 28px;
+  padding: 6px 10px 7px 7px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  font-family:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow:
+    0 8px 20px rgba(15, 23, 42, 0.12),
+    0 1px 4px rgba(15, 23, 42, 0.08);
+}
+
+.placeNameOverlay::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -18px;
+  width: 11px;
+  height: 11px;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  background: #2563eb;
+  transform: translateX(-50%);
+  box-shadow:
+    0 0 0 4px rgba(37, 99, 235, 0.18),
+    0 8px 16px rgba(15, 23, 42, 0.18);
+}
+
+.placeNameOverlay::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 12px;
+  height: 12px;
+  border-right: 1px solid rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.placeNameIndex {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 9px;
+  font-weight: 850;
+  position: relative;
+  z-index: 1;
+}
+
+.placeNameText {
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+  line-height: 1;
+  position: relative;
+  z-index: 1;
+}
+
+.selectedPlaceNameOverlay {
+  max-width: min(440px, calc(100vw - 48px));
+  border-color: rgba(37, 99, 235, 0.24);
+  background: #ffffff;
+  transform: scale(1.08);
+  transform-origin: center bottom;
+  box-shadow:
+    0 14px 32px rgba(37, 99, 235, 0.2),
+    0 5px 14px rgba(15, 23, 42, 0.16),
+    0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.selectedPlaceNameOverlay::before {
+  width: 13px;
+  height: 13px;
+  background: #1d4ed8;
+  box-shadow:
+    0 0 0 5px rgba(37, 99, 235, 0.22),
+    0 9px 18px rgba(15, 23, 42, 0.2);
+}
+
+.selectedPlaceNameIndex {
+  background: #1d4ed8;
+}
+
 @keyframes locationPulse {
   from {
     opacity: 0.7;
@@ -206,6 +310,45 @@
   z-index: 3;
   width: 32px;
   height: 32px;
+}
+
+.locationPopup {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  z-index: 10;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 15, 20, 0.82);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.locationPopupItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family:
+    ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.locationPopupItem:hover {
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .locationButton {

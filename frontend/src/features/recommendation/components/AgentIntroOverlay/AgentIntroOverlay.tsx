@@ -63,7 +63,7 @@ export default function AgentIntroOverlay({ onSubmit }: AgentIntroOverlayProps) 
           type="text"
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="예시) 회사 근처에서 부담 없는 점심 골라줘"
+          placeholder="오늘의 메뉴를 골라드릴게요 예시) 점심 뭐 먹지?"
           aria-label="AI 추천 요청 입력"
         />
         <button type="submit" aria-label="AI에게 추천 요청 보내기" disabled={!input.trim()}>

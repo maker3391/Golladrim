@@ -56,10 +56,17 @@
   font-size: 18px;
   font-weight: 850;
   line-height: 1.25;
+  flex-shrink: 0;
+}
+
+.addressRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .radiusGroup {
-  margin-top: 16px;
   display: flex;
   gap: 8px;
 }
@@ -72,7 +79,7 @@
   background: #ffffff;
   color: #475569;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   line-height: 1;
   cursor: pointer;
   transition:

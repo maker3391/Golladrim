@@ -9,6 +9,7 @@
   cursor: pointer;
   transition:
     border-color 0.15s ease,
+    box-shadow 0.15s ease,
     background 0.15s ease,
     transform 0.15s ease;
 }
@@ -20,7 +21,19 @@
 
 .selected {
   border-color: #0f766e;
-  background: rgba(15, 118, 110, 0.04);
+  background: linear-gradient(180deg, rgba(15, 118, 110, 0.08), rgba(255, 255, 255, 0.96));
+  box-shadow:
+    0 0 0 2px rgba(15, 118, 110, 0.14),
+    0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.selected .index {
+  background: #134e4a;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.14);
+}
+
+.selected .titleGroup h2 {
+  color: #134e4a;
 }
 
 .index {

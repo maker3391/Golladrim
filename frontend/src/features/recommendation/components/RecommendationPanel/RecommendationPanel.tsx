@@ -44,6 +44,9 @@ interface RecommendationPanelProps {
   onTogglePanel: () => void;
   canTogglePanel?: boolean;
   onSelectPlace?: (place: PlaceResponse | null) => void;
+  onShowPlaces?: (places: PlaceResponse[]) => void;
+  onTogglePlaces?: (places: PlaceResponse[]) => void;
+  visiblePlaceKeys?: string[];
   onLikeFood: (food: FoodRecommendItem) => void;
   onRegisterExecute: (
     fn: (food: FoodRecommendItem, lat: number, lng: number, radius: number) => void,
@@ -57,6 +60,9 @@ export default function RecommendationPanel({
   onTogglePanel,
   canTogglePanel = true,
   onSelectPlace,
+  onShowPlaces,
+  onTogglePlaces,
+  visiblePlaceKeys = [],
   onLikeFood,
   onRegisterExecute,
 }: RecommendationPanelProps) {
@@ -210,13 +216,22 @@ export default function RecommendationPanel({
     return place.placeUrl || `${place.placeName}-${place.latitude}-${place.longitude}`;
   }
 
-  function handleCardClick(place: PlaceResponse) {
+  function handleCardClick(place: PlaceResponse, places: PlaceResponse[]) {
     const placeKey = getPlaceKey(place);
+    onShowPlaces?.(places);
     onSelectPlace?.(selectedPlaceKey === placeKey ? null : place);
   }
 
-  function handleShowAll() {
-    onSelectPlace?.(null);
+  function handleShowAll(places: PlaceResponse[]) {
+    onTogglePlaces?.(places);
+  }
+
+  function isPlaceGroupVisible(places: PlaceResponse[]) {
+    if (places.length === 0 || places.length !== visiblePlaceKeys.length) {
+      return false;
+    }
+
+    return places.every((place, index) => getPlaceKey(place) === visiblePlaceKeys[index]);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -245,7 +260,6 @@ export default function RecommendationPanel({
     lng: number,
     radius: number,
   ) => {
-    void radius;
     const thinkingMessageId = createMessageId();
     setActionableFoodMessageId(null);
     setMessages((currentMessages) => [
@@ -271,6 +285,7 @@ export default function RecommendationPanel({
       foodName: food.name,
       latitude: lat,
       longitude: lng,
+      radius,
     });
 
     if (!response) {
@@ -301,7 +316,8 @@ export default function RecommendationPanel({
           : message,
       ),
     );
-  }, [recommendPlaces]);
+    onShowPlaces?.(response.places);
+  }, [onShowPlaces, recommendPlaces]);
 
   useEffect(() => {
     onRegisterExecute(executePlaceSearch);
@@ -465,6 +481,8 @@ export default function RecommendationPanel({
                 );
               }
 
+              const placeGroupVisible = isPlaceGroupVisible(message.places);
+
               return (
                 <motion.div
                   key={message.id}
@@ -502,7 +520,7 @@ export default function RecommendationPanel({
                             place={place}
                             index={placeIndex}
                             selected={selectedPlaceKey === getPlaceKey(place)}
-                            onSelect={handleCardClick}
+                            onSelect={(selectedPlace) => handleCardClick(selectedPlace, message.places)}
                           />
                         </motion.div>
                       ))}
@@ -512,10 +530,14 @@ export default function RecommendationPanel({
                   <button
                     className={styles.mapCta}
                     type="button"
-                    onClick={handleShowAll}
+                    onClick={() => handleShowAll(message.places)}
                   >
                     <MapPinned aria-hidden="true" size={17} strokeWidth={2.2} />
-                    <span>추천 장소 위치 보기</span>
+                    <span>
+                      {placeGroupVisible
+                        ? "추천 장소 위치 숨기기"
+                        : "추천 장소 위치 보기"}
+                    </span>
                   </button>
                 </motion.div>
               );
