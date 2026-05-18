@@ -14,5 +14,7 @@ public record PlaceRecommendRequest(
         Double latitude,
 
         @NotNull(message = "경도 정보를 입력해 주세요.")
-        Double longitude
+        Double longitude,
+
+        Integer radius
 ) {}

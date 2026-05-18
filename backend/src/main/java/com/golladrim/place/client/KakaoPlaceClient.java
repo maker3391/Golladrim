@@ -19,7 +19,7 @@ public class KakaoPlaceClient implements PlaceSearchPort {
     private final RestClient restClient;
     private final KakaoPlaceAdapter kakaoPlaceAdapter;
     private final String apiKey;
-    private final int radius;
+    private final int defaultRadius;
 
     public KakaoPlaceClient(
             RestClient.Builder restClientBuilder,
@@ -36,19 +36,20 @@ public class KakaoPlaceClient implements PlaceSearchPort {
                 .build();
         this.kakaoPlaceAdapter = kakaoPlaceAdapter;
         this.apiKey = apiKey;
-        this.radius = radius;
+        this.defaultRadius = radius;
     }
 
     @Override
     @CircuitBreaker(name = "kakaoPlace", fallbackMethod = "fallbackSearch")
-    public List<PlaceCandidate> search(String query, double latitude, double longitude) {
+    public List<PlaceCandidate> search(String query, double latitude, double longitude, int radius) {
         if (apiKey == null || apiKey.isBlank()) {
             log.warn("Kakao Local API key is not configured.");
             return List.of();
         }
 
+        int searchRadius = radius > 0 ? radius : defaultRadius;
         log.info("Kakao place search params: query={}, x(longitude)={}, y(latitude)={}, radius={}, sort=distance",
-                query, longitude, latitude, radius);
+                query, longitude, latitude, searchRadius);
 
         KakaoPlaceSearchResponse response = restClient.get()
                 .uri(uriBuilder -> uriBuilder
@@ -56,7 +57,7 @@ public class KakaoPlaceClient implements PlaceSearchPort {
                         .queryParam("query", query)
                         .queryParam("x", longitude)
                         .queryParam("y", latitude)
-                        .queryParam("radius", radius)
+                        .queryParam("radius", searchRadius)
                         .queryParam("sort", "distance")
                         .build())
                 .header("Authorization", "KakaoAK " + apiKey)
@@ -77,10 +78,11 @@ public class KakaoPlaceClient implements PlaceSearchPort {
             String query,
             double latitude,
             double longitude,
+            int radius,
             Throwable throwable
     ) {
-        log.warn("Kakao place search fallback. query={}, latitude={}, longitude={}",
-                query, latitude, longitude, throwable);
+        log.warn("Kakao place search fallback. query={}, latitude={}, longitude={}, radius={}",
+                query, latitude, longitude, radius, throwable);
         return List.of();
     }
 

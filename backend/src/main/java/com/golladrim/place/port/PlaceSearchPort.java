@@ -5,5 +5,5 @@ import com.golladrim.place.model.PlaceCandidate;
 import java.util.List;
 
 public interface PlaceSearchPort {
-    List<PlaceCandidate> search(String query, double latitude, double longitude);
+    List<PlaceCandidate> search(String query, double latitude, double longitude, int radius);
 }
