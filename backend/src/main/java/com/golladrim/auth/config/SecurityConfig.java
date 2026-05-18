@@ -62,6 +62,8 @@ public class SecurityConfig {
                                 "/api/auth/logout"
                         ).permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/foods/recommend").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/places/recommend").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/places/geocode").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )

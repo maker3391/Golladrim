@@ -2,6 +2,7 @@ package com.golladrim.food.engine;
 
 import com.golladrim.food.domain.FoodItem;
 import com.golladrim.food.dto.FoodRecommendItem;
+import com.golladrim.food.dto.RecommendStatus;
 import com.golladrim.food.resolver.ResolvedFoodIntent;
 import org.springframework.stereotype.Component;
 
@@ -30,6 +31,14 @@ public class FoodRuleEngine {
             ResolvedFoodIntent intent,
             List<Long> excludedFoodIds
     ) {
+        return recommendWithStatus(items, intent, excludedFoodIds).items();
+    }
+
+    public FoodRuleEngineResult recommendWithStatus(
+            List<FoodItem> items,
+            ResolvedFoodIntent intent,
+            List<Long> excludedFoodIds
+    ) {
         Set<Long> excludedIds = new HashSet<>(excludedFoodIds);
         Map<String, Set<String>> tagsByAxis = intent.getTagsByAxis();
 
@@ -40,10 +49,10 @@ public class FoodRuleEngine {
                 .collect(Collectors.toCollection(ArrayList::new));
 
         if (!scored.isEmpty()) {
-            return pickTop3(scored);
+            return new FoodRuleEngineResult(RecommendStatus.SUCCESS, pickTop3(scored));
         }
 
-        return randomFallback(items, excludedIds);
+        return new FoodRuleEngineResult(RecommendStatus.FALLBACK, randomFallback(items, excludedIds));
     }
 
     private List<FoodRecommendItem> pickTop3(List<FoodRecommendItem> scored) {
