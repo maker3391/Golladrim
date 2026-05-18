@@ -12,21 +12,54 @@ type KakaoLatLng = object;
 interface KakaoMap {
   setCenter: (latlng: KakaoLatLng) => void;
   setLevel: (level: number) => void;
+  setDraggable: (draggable: boolean) => void;
+  setZoomable: (zoomable: boolean) => void;
   addControl: (control: object | HTMLElement, position: number) => void;
   relayout: () => void;
 }
 
-interface KakaoMarker {
+interface KakaoCustomOverlay {
   setMap: (map: KakaoMap | null) => void;
+  setPosition: (position: KakaoLatLng) => void;
+}
+
+interface KakaoMouseEvent {
+  latLng: {
+    getLat: () => number;
+    getLng: () => number;
+  };
 }
 
 interface KakaoMaps {
   load: (callback: () => void) => void;
   LatLng: new (lat: number, lng: number) => KakaoLatLng;
-  Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => KakaoMap;
+  Map: new (
+    container: HTMLElement,
+    options: {
+      center: KakaoLatLng;
+      level: number;
+      draggable?: boolean;
+      scrollwheel?: boolean;
+      disableDoubleClickZoom?: boolean;
+    },
+  ) => KakaoMap;
   ZoomControl: new () => object;
   MapTypeControl: new () => object;
-  Marker: new (options: { map: KakaoMap; position: KakaoLatLng; title?: string }) => KakaoMarker;
+  CustomOverlay: new (options: {
+    map: KakaoMap;
+    position: KakaoLatLng;
+    content: string;
+    xAnchor?: number;
+    yAnchor?: number;
+    zIndex?: number;
+  }) => KakaoCustomOverlay;
+  event: {
+    addListener: (
+      target: KakaoMap,
+      type: "click",
+      callback: (mouseEvent: KakaoMouseEvent) => void,
+    ) => void;
+  };
   ControlPosition: { TOPRIGHT: number; RIGHT: number };
 }
 
@@ -36,8 +69,8 @@ declare global {
   }
 }
 
-const DEFAULT_MAP_LEVEL = 7;
-const FOCUSED_MAP_LEVEL = 6;
+const DEFAULT_MAP_LEVEL = 5;
+const FOCUSED_MAP_LEVEL = 4;
 const GEOLOCATION_CACHE_TTL = 30_000;
 const GEOLOCATION_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
@@ -50,23 +83,67 @@ interface CachedCoords {
   timestamp: number;
 }
 
+interface UserLocation {
+  latitude: number;
+  longitude: number;
+}
+
 interface MapPanelProps {
   location?: { latitude: number; longitude: number; name: string };
   layoutVersion?: number;
   locateTrigger?: number;
+  onLocationPin?: (lat: number, lng: number) => void;
+  onUserLocationChange?: (location: { lat: number; lng: number } | null) => void;
+  interactive?: boolean;
 }
 
-export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 0 }: MapPanelProps) {
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+export default function MapPanel({
+  location,
+  layoutVersion = 0,
+  locateTrigger = 0,
+  onLocationPin,
+  onUserLocationChange,
+  interactive = true,
+}: MapPanelProps) {
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<KakaoMap | null>(null);
-  const placeMarkerRef = useRef<KakaoMarker | null>(null);
+  const selectedPlaceOverlayRef = useRef<KakaoCustomOverlay | null>(null);
+  const userLocationOverlayRef = useRef<KakaoCustomOverlay | null>(null);
   const latestLocationRef = useRef<MapPanelProps["location"]>(location);
+  const onLocationPinRef = useRef(onLocationPin);
+  const onUserLocationChangeRef = useRef(onUserLocationChange);
   const cachedCoordsRef = useRef<CachedCoords | null>(null);
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     latestLocationRef.current = location;
   }, [location]);
+
+  useEffect(() => {
+    onLocationPinRef.current = onLocationPin;
+  }, [onLocationPin]);
+
+  useEffect(() => {
+    onUserLocationChangeRef.current = onUserLocationChange;
+  }, [onUserLocationChange]);
+
+  useEffect(() => {
+    onUserLocationChangeRef.current?.(
+      userLocation
+        ? { lat: userLocation.latitude, lng: userLocation.longitude }
+        : null,
+    );
+  }, [userLocation]);
 
   const relayoutMap = useCallback(() => {
     const maps = window.kakao?.maps;
@@ -87,8 +164,13 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
     if (!maps || !map || !navigator.geolocation) return;
 
     const applyCoords = (coords: GeolocationCoordinates) => {
+      const position = new maps.LatLng(coords.latitude, coords.longitude);
       cachedCoordsRef.current = { coords, timestamp: Date.now() };
-      map.setCenter(new maps.LatLng(coords.latitude, coords.longitude));
+      setUserLocation({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+      map.setCenter(position);
       map.setLevel(FOCUSED_MAP_LEVEL);
     };
 
@@ -118,16 +200,39 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
 
       const center = new maps.LatLng(lat, lng);
 
-      mapInstanceRef.current = new maps.Map(mapRef.current, { center, level: DEFAULT_MAP_LEVEL });
+      const mapInstance = new maps.Map(mapRef.current, {
+        center,
+        level: DEFAULT_MAP_LEVEL,
+        draggable: interactive,
+        scrollwheel: interactive,
+        disableDoubleClickZoom: !interactive,
+      });
+      mapInstanceRef.current = mapInstance;
 
-      mapInstanceRef.current.addControl(
+      mapInstance.addControl(
         new maps.MapTypeControl(),
         maps.ControlPosition.TOPRIGHT,
       );
-      mapInstanceRef.current.addControl(
+      mapInstance.addControl(
         new maps.ZoomControl(),
         maps.ControlPosition.RIGHT,
       );
+
+      maps.event.addListener(mapInstance, "click", (mouseEvent) => {
+        if (!onLocationPinRef.current) return;
+        const lat = mouseEvent.latLng.getLat();
+        const lng = mouseEvent.latLng.getLng();
+
+        const pinPosition = new maps.LatLng(lat, lng);
+        mapInstance.setCenter(pinPosition);
+        mapInstance.setLevel(FOCUSED_MAP_LEVEL);
+
+        setUserLocation({
+          latitude: lat,
+          longitude: lng,
+        });
+        onLocationPinRef.current?.(lat, lng);
+      });
 
       setMapError(null);
     };
@@ -145,8 +250,20 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
 
     return () => {
       isMounted = false;
+      userLocationOverlayRef.current?.setMap(null);
+      userLocationOverlayRef.current = null;
+      selectedPlaceOverlayRef.current?.setMap(null);
+      selectedPlaceOverlayRef.current = null;
     };
   }, [moveToCurrentLocation]);
+
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    map.setDraggable(interactive);
+    map.setZoomable(interactive);
+  }, [interactive]);
 
   useEffect(() => {
     const mapSurface = mapRef.current;
@@ -173,15 +290,62 @@ export default function MapPanel({ location, layoutVersion = 0, locateTrigger = 
     const map = mapInstanceRef.current;
     if (!maps || !map) return;
 
+    if (!userLocation) {
+      userLocationOverlayRef.current?.setMap(null);
+      userLocationOverlayRef.current = null;
+      return;
+    }
+
+    const pos = new maps.LatLng(userLocation.latitude, userLocation.longitude);
+
+    if (userLocationOverlayRef.current) {
+      userLocationOverlayRef.current.setPosition(pos);
+      userLocationOverlayRef.current.setMap(map);
+      return;
+    }
+
+    userLocationOverlayRef.current = new maps.CustomOverlay({
+      map,
+      position: pos,
+      content: `
+        <div class="${styles.userLocationOverlay}">
+          <span class="${styles.userLocationPulse}" aria-hidden="true"></span>
+          <span class="${styles.userLocationLabel}">내 위치</span>
+          <span class="${styles.userLocationPointer}" aria-hidden="true"></span>
+        </div>
+      `,
+      xAnchor: 0.5,
+      yAnchor: 1.12,
+      zIndex: 12,
+    });
+  }, [userLocation]);
+
+  useEffect(() => {
+    const maps = window.kakao?.maps;
+    const map = mapInstanceRef.current;
+    if (!maps || !map) return;
+
     if (!location) {
-      placeMarkerRef.current?.setMap(null);
-      placeMarkerRef.current = null;
+      selectedPlaceOverlayRef.current?.setMap(null);
+      selectedPlaceOverlayRef.current = null;
       return;
     }
 
     const pos = new maps.LatLng(location.latitude, location.longitude);
-    placeMarkerRef.current?.setMap(null);
-    placeMarkerRef.current = new maps.Marker({ map, position: pos, title: location.name });
+    selectedPlaceOverlayRef.current?.setMap(null);
+    selectedPlaceOverlayRef.current = new maps.CustomOverlay({
+      map,
+      position: pos,
+      content: `
+        <div class="${styles.selectedPlaceOverlay}">
+          <span>${escapeHtml(location.name)}</span>
+          <i aria-hidden="true"></i>
+        </div>
+      `,
+      xAnchor: 0.5,
+      yAnchor: 1.08,
+      zIndex: 10,
+    });
     map.setCenter(pos);
     map.setLevel(FOCUSED_MAP_LEVEL);
   }, [location]);

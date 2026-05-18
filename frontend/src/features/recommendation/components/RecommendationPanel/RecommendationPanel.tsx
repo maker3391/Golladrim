@@ -4,11 +4,13 @@ import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowDown, ArrowUp, MapPinned, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import FoodCard from "@/features/recommendation/components/FoodCard/FoodCard";
+import PlaceCard from "@/features/recommendation/components/PlaceCard/PlaceCard";
 import ThinkingIndicator from "@/features/recommendation/components/ThinkingIndicator/ThinkingIndicator";
 import TypingText from "@/features/recommendation/components/TypingText/TypingText";
 import { useFoodRecommendation } from "@/features/recommendation/hooks/useFoodRecommendation";
+import { usePlaceRecommendation } from "@/features/recommendation/hooks/usePlaceRecommendation";
 import { FoodRecommendItem } from "@/features/recommendation/types/food.types";
-import { RecommendationPlace } from "@/features/recommendation/types/recommendation.types";
+import { PlaceResponse } from "@/features/recommendation/types/recommendation.types";
 import styles from "./RecommendationPanel.module.css";
 
 type ChatPanelState = "collapsed" | "expanded";
@@ -23,7 +25,13 @@ type ChatMessage =
       food: FoodRecommendItem;
       status: "SUCCESS" | "FALLBACK";
     }
-  | { type: "place"; id: string };
+  | {
+      type: "places";
+      id: string;
+      foodName: string;
+      places: PlaceResponse[];
+      message?: string | null;
+    };
 
 function createMessageId() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
@@ -32,21 +40,25 @@ function createMessageId() {
 interface RecommendationPanelProps {
   panelState: ChatPanelState;
   userPrompt: string;
-  places: RecommendationPlace[];
-  selectedPlaceId: number | null;
+  selectedPlaceKey: string | null;
   onTogglePanel: () => void;
   canTogglePanel?: boolean;
-  onSelectPlace?: (place: RecommendationPlace | null) => void;
+  onSelectPlace?: (place: PlaceResponse | null) => void;
+  onLikeFood: (food: FoodRecommendItem) => void;
+  onRegisterExecute: (
+    fn: (food: FoodRecommendItem, lat: number, lng: number, radius: number) => void,
+  ) => void;
 }
 
 export default function RecommendationPanel({
   panelState,
   userPrompt,
-  places,
-  selectedPlaceId,
+  selectedPlaceKey,
   onTogglePanel,
   canTogglePanel = true,
   onSelectPlace,
+  onLikeFood,
+  onRegisterExecute,
 }: RecommendationPanelProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -64,6 +76,7 @@ export default function RecommendationPanel({
   const conversationRef = useRef<HTMLElement | null>(null);
   const { currentFood, status, loading, error, recommend, retry } =
     useFoodRecommendation();
+  const { recommendPlaces, isLoading: placeLoading } = usePlaceRecommendation();
 
   const scrollToBottom = useCallback((smooth = false) => {
     bottomRef.current?.scrollIntoView({
@@ -85,7 +98,6 @@ export default function RecommendationPanel({
   }
 
   const isExpanded = panelState === "expanded";
-  const hasPlaces = places.length > 0;
   const lastAgentMessageId = [...messages]
     .reverse()
     .find((message) => message.type === "agent")?.id;
@@ -194,8 +206,13 @@ export default function RecommendationPanel({
     scrollToBottom();
   }, [messages, typedAgentMessageIds, scrollToBottom]);
 
-  function handleCardClick(place: RecommendationPlace) {
-    onSelectPlace?.(selectedPlaceId === place.id ? null : place);
+  function getPlaceKey(place: PlaceResponse) {
+    return place.placeUrl || `${place.placeName}-${place.latitude}-${place.longitude}`;
+  }
+
+  function handleCardClick(place: PlaceResponse) {
+    const placeKey = getPlaceKey(place);
+    onSelectPlace?.(selectedPlaceKey === placeKey ? null : place);
   }
 
   function handleShowAll() {
@@ -222,7 +239,14 @@ export default function RecommendationPanel({
     setInput("");
   }
 
-  function handleLikeFood() {
+  const executePlaceSearch = useCallback(async (
+    food: FoodRecommendItem,
+    lat: number,
+    lng: number,
+    radius: number,
+  ) => {
+    void radius;
+    const thinkingMessageId = createMessageId();
     setActionableFoodMessageId(null);
     setMessages((currentMessages) => [
       ...currentMessages,
@@ -231,9 +255,57 @@ export default function RecommendationPanel({
         id: createMessageId(),
         text: "좋은 선택이에요! 근처 맛집을 찾아볼게요",
       },
-      { type: "place", id: createMessageId() },
+      { type: "thinking", id: thinkingMessageId },
     ]);
-  }
+
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[Golladrim] place recommendation geolocation", {
+        latitude: lat,
+        longitude: lng,
+        radius,
+      });
+    }
+
+    const response = await recommendPlaces({
+      foodId: food.id,
+      foodName: food.name,
+      latitude: lat,
+      longitude: lng,
+    });
+
+    if (!response) {
+      setMessages((currentMessages) =>
+        currentMessages.map((message) =>
+          message.id === thinkingMessageId
+            ? {
+                type: "agent" as const,
+                id: message.id,
+                text: "근처 맛집을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+              }
+            : message,
+        ),
+      );
+      return;
+    }
+
+    setMessages((currentMessages) =>
+      currentMessages.map((message) =>
+        message.id === thinkingMessageId
+          ? {
+              type: "places" as const,
+              id: message.id,
+              foodName: response.foodName,
+              places: response.places,
+              message: response.message,
+            }
+          : message,
+      ),
+    );
+  }, [recommendPlaces]);
+
+  useEffect(() => {
+    onRegisterExecute(executePlaceSearch);
+  }, [executePlaceSearch, onRegisterExecute]);
 
   function handleDislikeFood() {
     pendingFoodAppendRef.current = true;
@@ -384,8 +456,8 @@ export default function RecommendationPanel({
                       key={message.id}
                       food={message.food}
                       status={message.status}
-                      actionsDisabled={message.id !== actionableFoodMessageId}
-                      onLike={handleLikeFood}
+                      actionsDisabled={message.id !== actionableFoodMessageId || placeLoading}
+                      onLike={() => onLikeFood(message.food)}
                       onDislike={handleDislikeFood}
                       onReady={scrollToBottomAfterLayout}
                     />
@@ -402,27 +474,23 @@ export default function RecommendationPanel({
                   transition={{ duration: 0.24, delay: 0.16 }}
                 >
                   <div className={styles.resultsHeader}>
-                    <strong>추천 결과</strong>
+                    <strong>{message.foodName} 맛집</strong>
                     <span>
-                      {hasPlaces ? `${places.length}곳 근처 후보` : "준비 중"}
+                      {message.places.length > 0
+                        ? `${message.places.length}곳 근처 후보`
+                        : "결과 없음"}
                     </span>
                   </div>
 
-                  {hasPlaces && (
+                  {message.message && (
+                    <p className={styles.emptyMessage}>{message.message}</p>
+                  )}
+
+                  {message.places.length > 0 && (
                     <div className={styles.resultList}>
-                      {places.map((place, placeIndex) => (
-                        <motion.article
-                          key={place.id}
-                          className={`${styles.resultCard} ${
-                            selectedPlaceId === place.id ? styles.active : ""
-                          }`}
-                          onClick={() => handleCardClick(place)}
-                          aria-pressed={selectedPlaceId === place.id}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(event) =>
-                            event.key === "Enter" && handleCardClick(place)
-                          }
+                      {message.places.map((place, placeIndex) => (
+                        <motion.div
+                          key={getPlaceKey(place)}
                           initial={{ opacity: 0, y: 12 }}
                           animate={{ opacity: 1, y: 0 }}
                           transition={{
@@ -430,23 +498,13 @@ export default function RecommendationPanel({
                             delay: 0.22 + placeIndex * 0.06,
                           }}
                         >
-                          <div className={styles.cardIndex}>{place.id}</div>
-                          <div className={styles.cardBody}>
-                            <h2>{place.name}</h2>
-                            <p className={styles.cardMeta}>{place.meta}</p>
-                            <p className={styles.cardDescription}>
-                              {place.description}
-                            </p>
-                            <div
-                              className={styles.tags}
-                              aria-label={`${place.name} 태그`}
-                            >
-                              {place.tags.map((tag) => (
-                                <span key={tag}>{tag}</span>
-                              ))}
-                            </div>
-                          </div>
-                        </motion.article>
+                          <PlaceCard
+                            place={place}
+                            index={placeIndex}
+                            selected={selectedPlaceKey === getPlaceKey(place)}
+                            onSelect={handleCardClick}
+                          />
+                        </motion.div>
                       ))}
                     </div>
                   )}
@@ -489,7 +547,7 @@ export default function RecommendationPanel({
             <input
               className={styles.composerInput}
               type="text"
-              placeholder="상황이나 먹고 싶은 메뉴를 입력해보세요"
+              placeholder="오늘의 메뉴를 골라드릴게요 예시) 점심 뭐 먹지?"
               value={input}
               onChange={(event) => setInput(event.target.value)}
               aria-label="AI 추천 요청 입력"

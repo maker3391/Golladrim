@@ -6,7 +6,7 @@ import type { ScriptProps } from "next/script";
 export const KAKAO_MAP_APP_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_APP_KEY;
 export const KAKAO_MAP_SDK_SCRIPT_ID = "kakao-map-sdk";
 export const KAKAO_MAP_SDK_SRC = KAKAO_MAP_APP_KEY
-  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_APP_KEY}&autoload=false`
+  ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_APP_KEY}&autoload=false&libraries=services`
   : null;
 
 interface KakaoMapSdkScriptProps {
